@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+kafka-python
+psycopg2-binary
+redis
+pyjwt
+celery
+httpx
+slowapi
+sentence-transformers
+alembic
+sqlalchemy

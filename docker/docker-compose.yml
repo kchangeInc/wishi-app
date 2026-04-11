@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ../frontend-nextjs
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=development
+
+  backend:
+    build:
+      context: ../backend-fastapi
+      dockerfile: Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      - PYTHONUNBUFFERED=1
+
+networks:
+  default:
+    name: deal-platform-network
