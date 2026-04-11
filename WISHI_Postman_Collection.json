@@ -1,0 +1,517 @@
+{
+  "info": {
+    "name": "WISHI Platform API",
+    "description": "Complete API collection for WISHI deal-platform microservices",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userEmail",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth Service",
+      "item": [
+        {
+          "name": "Google Login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login", "google"]
+            }
+          }
+        },
+        {
+          "name": "OAuth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/callback?code={{code}}&state={{state}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "{{code}}"
+                },
+                {
+                  "key": "state",
+                  "value": "{{state}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Token (Auth Code)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.access_token);",
+                  "    pm.collectionVariables.set('refreshToken', response.refresh_token);",
+                  "    console.log('Tokens updated');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code"
+                },
+                {
+                  "key": "code",
+                  "value": "{{authCode}}"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{redirectUri}}"
+                },
+                {
+                  "key": "code_verifier",
+                  "value": "{{codeVerifier}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.access_token);",
+                  "    pm.collectionVariables.set('refreshToken', response.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "refresh_token"
+                },
+                {
+                  "key": "refresh_token",
+                  "value": "{{refreshToken}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wishlist Service",
+      "item": [
+        {
+          "name": "Create Wishlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Honda Civic 2020\",\n  \"display_title\": \"Honda Civic 2020 in Mumbai\",\n  \"description\": \"Looking for a well-maintained Honda Civic\",\n  \"category\": \"automobile\",\n  \"subcategory\": \"sedan\",\n  \"filters_json\": {\n    \"location\": \"Mumbai\",\n    \"price\": 800000,\n    \"year\": 2020\n  },\n  \"status\": \"active\",\n  \"priority\": \"high\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/wishlists",
+              "host": ["{{baseUrl}}"],
+              "path": ["wishlist", "wishlists"]
+            }
+          }
+        },
+        {
+          "name": "Get All Wishlists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "Optional for filtering"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/wishlists?user_only=true&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["wishlist", "wishlists"],
+              "query": [
+                {
+                  "key": "user_only",
+                  "value": "true"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Wishlist by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/wishlists/{{wishlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["wishlist", "wishlists", "{{wishlistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Wishlist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Honda Civic 2020\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/wishlists/{{wishlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["wishlist", "wishlists", "{{wishlistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/wishlists/{{wishlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["wishlist", "wishlists", "{{wishlistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["wishlist", "categories"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seller Service",
+      "item": [
+        {
+          "name": "Get Market Insights",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/insights",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "insights"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cluster Service",
+      "item": [
+        {
+          "name": "Create/Update Cluster",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Honda Civic Cluster\",\n  \"location\": \"Mumbai\",\n  \"price\": 800000,\n  \"category\": \"automobile\",\n  \"subcategory\": \"sedan\",\n  \"user_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cluster/clusters",
+              "host": ["{{baseUrl}}"],
+              "path": ["cluster", "clusters"]
+            }
+          }
+        },
+        {
+          "name": "Get Cluster by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cluster/clusters/{{clusterId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["cluster", "clusters", "{{clusterId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Match Engine Service",
+      "item": [
+        {
+          "name": "Get Query Templates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/match/templates",
+              "host": ["{{baseUrl}}"],
+              "path": ["match", "templates"]
+            }
+          }
+        },
+        {
+          "name": "Generate Search Queries",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product\": \"Honda Civic\",\n  \"year\": \"2020\",\n  \"city\": \"Mumbai\",\n  \"price\": \"8 lakh\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/match/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["match", "search"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Validation Service",
+      "item": [
+        {
+          "name": "Validate URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/honda-civic-2020\",\n  \"product\": \"Honda Civic\",\n  \"brand\": \"Honda\",\n  \"model\": \"Civic\",\n  \"location\": \"Mumbai\",\n  \"price\": 750000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/validation/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["validation", "validate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Service",
+      "item": [
+        {
+          "name": "Review Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"match_id\": {{matchId}},\n  \"action\": \"approve\",\n  \"reason\": \"Valid match\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "review"]
+            }
+          }
+        },
+        {
+          "name": "Pending Reviews Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "dashboard", "pending"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notification Service",
+      "item": [
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cluster_id\": {{clusterId}},\n  \"message\": \"New deals found for your wishlist!\",\n  \"recipients\": [\"user@example.com\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notification/notify",
+              "host": ["{{baseUrl}}"],
+              "path": ["notification", "notify"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Prometheus Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["metrics"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
