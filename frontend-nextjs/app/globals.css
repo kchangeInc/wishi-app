@@ -120,6 +120,33 @@
   .pinterest-nav {
     @apply bg-white border-b border-gray-200 sticky top-0 z-50 backdrop-blur-sm bg-white/80;
   }
+
+  /* Range slider */
+  .wishi-slider {
+    @apply w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer;
+  }
+
+  .wishi-slider:focus {
+    @apply outline-none;
+  }
+
+  .wishi-slider::-webkit-slider-thumb {
+    @apply w-4 h-4 bg-sky-600 rounded-full appearance-none cursor-pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+
+  .wishi-slider::-webkit-slider-thumb:hover {
+    @apply bg-sky-700;
+  }
+
+  .wishi-slider::-moz-range-thumb {
+    @apply w-4 h-4 bg-sky-600 rounded-full border-0 cursor-pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+
+  .wishi-slider::-moz-range-thumb:hover {
+    @apply bg-sky-700;
+  }
 }
 
 /* Custom animations */
