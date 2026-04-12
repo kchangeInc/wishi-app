@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Heart, Search, ShoppingCart, User, Menu, X, Star, Home } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, User, Star, Home } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Masonry from 'react-masonry-css'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
+import { useAuth } from '../contexts/AuthContext'
 
 const featureCards = [
   {
@@ -117,84 +120,6 @@ const sampleWishlists = [
   },
 ]
 
-function Header({ onLoginClick, onSearchSubmit }) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      onSearchSubmit(searchQuery.trim())
-    }
-  }
-
-  return (
-    <header className="pinterest-nav">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white shadow-sm">
-              <ShoppingCart className="w-5 h-5" />
-            </div>
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-sky-600">WISHI</span>
-          </div>
-
-          <div className="hidden lg:flex flex-1 justify-center max-w-md">
-            <form onSubmit={handleSearchSubmit} className="w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for products, categories..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-transparent"
-                />
-              </div>
-            </form>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4">
-            <nav className="flex items-center gap-6 text-sm font-medium">
-              <a href="#" className="text-slate-700 hover:text-sky-600 transition">About</a>
-              <a href="#" className="text-slate-700 hover:text-sky-600 transition">How It Works</a>
-              <a href="#" className="text-slate-700 hover:text-sky-600 transition">Login</a>
-            </nav>
-            <button onClick={() => onLoginClick('register')} className="rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700 transition">
-              Signup
-            </button>
-          </div>
-
-          <button className="md:hidden p-2 rounded-lg border border-gray-200" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div className="mt-4 space-y-4 border-t border-gray-200 py-4 md:hidden">
-            <form onSubmit={handleSearchSubmit} className="px-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-transparent"
-                />
-              </div>
-            </form>
-            <button className="block w-full text-left text-gray-700 hover:text-sky-600">About</button>
-            <button className="block w-full text-left text-gray-700 hover:text-sky-600">How It Works</button>
-            <button className="block w-full text-left text-gray-700 hover:text-sky-600">Login</button>
-            <button onClick={() => onLoginClick('login')} className="block w-full text-left text-sky-600 font-semibold">Sign in</button>
-          </div>
-        )}
-      </div>
-    </header>
-  )
-}
-
 function MobileBottomNav({ onHome, onSearch, onProfile }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white shadow-2xl lg:hidden">
@@ -213,24 +138,6 @@ function MobileBottomNav({ onHome, onSearch, onProfile }) {
         </button>
       </div>
     </div>
-  )
-}
-
-function FeatureCard({ feature, index }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.12 + index * 0.05 }}
-      className="group rounded-3xl overflow-hidden border border-gray-200 shadow-sm bg-white hover:shadow-xl transition-shadow"
-    >
-      <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.2), rgba(0,0,0,0.2)), url('https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80')` }} />
-      <div className="p-6">
-        <span className="inline-flex rounded-full bg-sky-100 text-sky-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]">{feature.badge}</span>
-        <h3 className="mt-4 text-xl font-semibold text-slate-900">{feature.title}</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
-      </div>
-    </motion.div>
   )
 }
 
@@ -253,53 +160,132 @@ function CategoryCard({ category }) {
 
 function FeatureCarousel({ features, activeIndex, onSelect }) {
   return (
-    <div className="space-y-4">
-      <div className="relative mx-auto w-full max-w-4xl h-[420px] sm:h-[480px] lg:h-[520px] overflow-hidden rounded-[32px] bg-white shadow-2xl">
-        {features.map((feature, index) => (
-          <motion.div
-            key={feature.title}
-            initial={false}
-            animate={activeIndex === index ? { opacity: 1, x: 0 } : { opacity: 0, x: index < activeIndex ? -40 : 40 }}
-            transition={{ duration: 0.45 }}
-            className={`absolute inset-0 flex flex-col justify-end p-8 text-white transition-all ${activeIndex === index ? 'relative opacity-100' : 'opacity-0 pointer-events-none'}`}
-          >
-            <img src={feature.image} alt={feature.alt} className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-            <div className="relative z-10 max-w-xl rounded-[28px] bg-white/85 p-6 shadow-2xl backdrop-blur-sm text-slate-900">
-              <span className="inline-flex rounded-full bg-sky-100 text-sky-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]">
-                {feature.badge}
-              </span>
-              <h3 className="mt-4 text-3xl font-semibold">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-700">{feature.description}</p>
-            </div>
-          </motion.div>
-        ))}
+    <div className="flex flex-col items-center gap-4 sm:gap-6">
+      {/* Phone mockup */}
+      <div className="relative mx-auto w-[260px] sm:w-[280px] md:w-[300px]">
+        {/* Phone frame */}
+        <div className="relative rounded-[30px] sm:rounded-[36px] md:rounded-[40px] border-[5px] sm:border-[6px] border-slate-800 bg-slate-800 shadow-2xl shadow-slate-900/40 overflow-hidden">
+          {/* Notch */}
+          {/* <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 w-20 sm:w-24 md:w-28 h-5 sm:h-6 bg-slate-800 rounded-b-xl sm:rounded-b-2xl" /> */}
+          {/* Status bar */}
+          {/* <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 w-12 sm:w-14 md:w-16 h-1 sm:h-1.5 bg-slate-700 rounded-full" /> */}
 
-        <button
-          onClick={() => onSelect((activeIndex + features.length - 1) % features.length)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-3 text-slate-700 shadow-lg ring-1 ring-slate-200 transition hover:bg-white sm:left-4"
-          aria-label="Previous feature"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => onSelect((activeIndex + 1) % features.length)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-3 text-slate-700 shadow-lg ring-1 ring-slate-200 transition hover:bg-white sm:right-4"
-          aria-label="Next feature"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+          {/* Screen content */}
+          <div className="relative h-[360px] sm:h-[420px] md:h-[480px] overflow-hidden bg-gray-100">
+            {features.map((feature, index) => {
+              const isActive = activeIndex === index
+              return (
+                <motion.div
+                  key={feature.title}
+                  className="absolute inset-0"
+                  initial={false}
+                  animate={{
+                    opacity: isActive ? 1 : 0,
+                    y: isActive ? 0 : index > activeIndex ? 40 : -40,
+                  }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ zIndex: isActive ? 2 : 1 }}
+                >
+                  <motion.img
+                    src={feature.image}
+                    alt={feature.alt}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    initial={false}
+                    animate={{ scale: isActive ? 1.05 : 1 }}
+                    transition={{ duration: 5, ease: 'easeOut' }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                  {/* In-screen content */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-5">
+                    <motion.div
+                      initial={false}
+                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 16 }}
+                      transition={{ duration: 0.4, delay: isActive ? 0.2 : 0 }}
+                    >
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500 px-2 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white">
+                        <Star className="h-2 w-2 sm:h-2.5 sm:w-2.5 fill-white" />
+                        {feature.badge}
+                      </span>
+                    </motion.div>
+                    <motion.h3
+                      initial={false}
+                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 16 }}
+                      transition={{ duration: 0.4, delay: isActive ? 0.3 : 0 }}
+                      className="mt-1.5 sm:mt-2 text-base sm:text-lg font-bold text-white leading-tight"
+                    >
+                      {feature.title}
+                    </motion.h3>
+                    <motion.p
+                      initial={false}
+                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 16 }}
+                      transition={{ duration: 0.4, delay: isActive ? 0.4 : 0 }}
+                      className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs leading-relaxed text-white/75"
+                    >
+                      {feature.description}
+                    </motion.p>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+
+          {/* Home indicator bar */}
+          <div className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 z-30 w-16 sm:w-20 md:w-24 h-1 bg-white/60 rounded-full" />
+        </div>
+
+        {/* Floating badge - top right outside phone */}
+        {/* <motion.div
+          key={`badge-${activeIndex}`}
+          initial={{ opacity: 0, scale: 0.8, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="absolute -top-2 sm:-top-3 -right-2 sm:-right-6 md:-right-10 z-20 rounded-xl sm:rounded-2xl bg-white px-2 sm:px-3 py-1.5 sm:py-2 shadow-lg border border-gray-100"
+        > */}
+          {/* <p className="text-[8px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Feature</p> */}
+          {/* <p className="text-xs sm:text-sm font-bold text-sky-600">{features[activeIndex].badge}</p> */}
+        {/* </motion.div> */}
+
+        {/* Floating counter - bottom left outside phone */}
+        {/* <motion.div
+          key={`count-${activeIndex}`}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="absolute -bottom-1 sm:-bottom-2 -left-2 sm:-left-4 md:-left-8 z-20 flex items-center gap-1 sm:gap-1.5 rounded-full bg-sky-600 px-2 sm:px-3 py-1 sm:py-1.5 shadow-lg shadow-sky-600/30"
+        > */}
+          {/* <span className="text-xs sm:text-sm font-bold text-white">{String(activeIndex + 1).padStart(2, '0')}</span>
+          <span className="text-[9px] sm:text-[10px] text-white/60">/</span>
+          <span className="text-[9px] sm:text-[10px] text-white/60">{String(features.length).padStart(2, '0')}</span> */}
+        {/* </motion.div> */}
       </div>
 
-      <div className="flex items-center justify-center gap-2">
-        {features.map((_, index) => (
-          <button
-            key={`dot-${index}`}
-            onClick={() => onSelect(index)}
-            className={`h-2.5 w-2.5 rounded-full transition ${activeIndex === index ? 'bg-sky-600' : 'bg-slate-300 hover:bg-slate-400'}`}
-            aria-label={`Show feature ${index + 1}`}
-          />
-        ))}
+      {/* Navigation arrows + dots */}
+      <div className="flex items-center gap-3 sm:gap-4">
+        <button
+          onClick={() => onSelect((activeIndex + features.length - 1) % features.length)}
+          className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-gray-200 text-slate-500 transition hover:border-sky-500 hover:text-sky-600 hover:bg-sky-50"
+          aria-label="Previous feature"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-1.5">
+          {features.map((_, index) => (
+            <button
+              key={`dot-${index}`}
+              onClick={() => onSelect(index)}
+              className={`rounded-full transition-all duration-300 ${activeIndex === index ? 'w-6 sm:w-7 h-2 bg-sky-500' : 'w-2 h-2 bg-gray-200 hover:bg-gray-300'}`}
+              aria-label={`Show feature ${index + 1}`}
+            />
+          ))}
+        </div>
+        <button
+          onClick={() => onSelect((activeIndex + 1) % features.length)}
+          className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-gray-200 text-slate-500 transition hover:border-sky-500 hover:text-sky-600 hover:bg-sky-50"
+          aria-label="Next feature"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )
@@ -361,9 +347,7 @@ function WishlistMasonry() {
 
 export default function HomePage() {
   const router = useRouter()
-  const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authMode, setAuthMode] = useState('register')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { isLoggedIn } = useAuth()
   const [activeFeature, setActiveFeature] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 
@@ -377,19 +361,6 @@ export default function HomePage() {
     return () => clearInterval(interval)
   }, [isPaused])
 
-  const handleAction = (mode = 'login') => {
-    if (!isLoggedIn) {
-      setAuthMode(mode)
-      setShowAuthModal(true)
-      return
-    }
-    router.push('/search')
-  }
-
-  const handleSearchSubmit = (query) => {
-    router.push(`/search?q=${encodeURIComponent(query)}`)
-  }
-
   const handleHome = () => {
     router.push('/')
   }
@@ -399,39 +370,45 @@ export default function HomePage() {
   }
 
   const handleProfile = () => {
-    if (!isLoggedIn) {
-      setAuthMode('login')
-      setShowAuthModal(true)
-      return
-    }
-    router.push('/dashboard')
+    router.push(isLoggedIn ? '/dashboard' : '/')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
-      <Header onLoginClick={handleAction} onSearchSubmit={handleSearchSubmit} />
+    <div className="min-h-screen bg-gray-50">
+      <Header />
 
       <section className="relative overflow-hidden bg-white">
         <div className="absolute inset-y-0 left-0 w-full sm:w-1/2 bg-gradient-to-br from-sky-500/20 via-transparent to-transparent" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
           <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] items-center">
             <div className="max-w-2xl">
-              <p className="text-sm uppercase tracking-[0.4em] text-sky-600 font-semibold">Stop Searching</p>
+              <p className="text-sm uppercase tracking-[0.4em] text-sky-600 font-semibold">WISHI</p>
               <h1 className="mt-6 text-5xl sm:text-6xl font-bold tracking-tight text-slate-900">
-                Start Wishing
+                Welcome to WISHI
               </h1>
               <p className="mt-6 text-3xl font-semibold leading-tight text-slate-900">
-                Find Your <span className="text-sky-600">Ride</span> <span className="text-slate-500">Scooter, Bike</span> OR <span className="text-slate-500">Car</span>
+                Tell Us What You Want. <span className="text-sky-600">We'll Find It.</span>
               </p>
               <p className="mt-6 text-lg leading-8 text-slate-600 max-w-xl">
-                Find your ride with a clean marketplace experience built for fast discovery, curated listings, and instant activity.
+                WISHI is a smarter way to buy. Instead of searching across multiple platforms, simply tell us what you want — and we'll bring the best matches to you.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-slate-400">Looking for</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-sm font-medium text-blue-600">🛵 Scooter under ₹70K</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-sm font-medium text-emerald-600">🏠 2BHK for Rent</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 border border-violet-100 px-3 py-1 text-sm font-medium text-violet-600">📱 iPhone in Budget</span>
+                <span className="text-sm text-slate-400">?</span>
+              </div>
+              <p className="mt-4 text-sm text-slate-400">
+                Create a wish in seconds and start receiving matching listings automatically.<br />
+                No endless browsing. No missed deals. Just real demand meeting real supply.
               </p>
               <div className="mt-10 flex flex-wrap gap-4">
-                <button onClick={() => handleAction('register')} className="pinterest-btn px-8 py-4">
-                  Join Wishi for Free
+                <button onClick={() => router.push(isLoggedIn ? '/wishlist' : '/search')} className="pinterest-btn px-8 py-4">
+                  Create Your First Wish
                 </button>
-                <button onClick={() => handleAction('login')} className="rounded-full border border-gray-300 px-7 py-4 text-sm font-semibold text-slate-700 hover:border-sky-600 hover:text-sky-600 transition">
-                  I have a Wishi Account
+                <button onClick={() => router.push('/search')} className="rounded-full border border-gray-300 px-7 py-4 text-sm font-semibold text-slate-700 hover:border-sky-600 hover:text-sky-600 transition">
+                  Explore Trending Demand
                 </button>
               </div>
             </div>
@@ -450,7 +427,7 @@ export default function HomePage() {
               <p className="text-sm uppercase tracking-[0.4em] text-sky-600 font-semibold">Top categories</p>
               <h2 className="mt-4 text-3xl sm:text-4xl font-bold text-slate-900">Category-wise top picks</h2>
             </div>
-            <button onClick={() => handleAction('login')} className="pinterest-btn px-6 py-3 w-full sm:w-auto">
+            <button onClick={() => router.push('/search')} className="pinterest-btn px-6 py-3 w-full sm:w-auto">
               {isLoggedIn ? 'Load more results' : 'Login to continue'}
             </button>
           </div>
@@ -470,7 +447,7 @@ export default function HomePage() {
                 <h2 className="mt-4 text-3xl font-bold text-slate-900">Top latest item links</h2>
                 <p className="mt-3 text-gray-600 max-w-2xl">Browse the most recent listings and trending searches that make your page SEO-ready.</p>
               </div>
-              <button onClick={() => handleAction('login')} className="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:border-sky-600 hover:text-sky-600 transition w-full sm:w-auto">
+              <button onClick={() => router.push('/search')} className="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:border-sky-600 hover:text-sky-600 transition w-full sm:w-auto">
                 Explore latest
               </button>
             </div>
@@ -487,7 +464,7 @@ export default function HomePage() {
               <p className="text-sm uppercase tracking-[0.4em] text-sky-600 font-semibold">Recently added</p>
               <h2 className="mt-4 text-3xl font-bold text-slate-900">Latest wishlists and trending items</h2>
             </div>
-            <button onClick={() => handleAction('login')} className="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:border-sky-600 hover:text-sky-600 transition w-full sm:w-auto">
+            <button onClick={() => router.push('/search')} className="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:border-sky-600 hover:text-sky-600 transition w-full sm:w-auto">
               Load more ideas
             </button>
           </div>
@@ -504,83 +481,35 @@ export default function HomePage() {
               <p className="text-sm uppercase tracking-[0.35em] text-white/80 font-semibold">Join WISHI</p>
               <h2 className="mt-4 text-4xl sm:text-5xl font-bold tracking-tight">Ready to save, share, and match smarter?</h2>
               <p className="mt-5 text-base leading-8 text-white/90 max-w-xl">Create an account to unlock your own wishlist dashboard, save boards, and receive instant match alerts.</p>
-              <button onClick={() => handleAction('register')} className="mt-8 pinterest-btn px-8 py-4">
+              <button onClick={() => router.push(isLoggedIn ? '/wishlist' : '/search')} className="mt-8 pinterest-btn px-8 py-4">
                 Sign up free
               </button>
             </div>
           </div>
 
-          <div className="rounded-3xl bg-white p-8 shadow-xl border border-gray-200">
-            <p className="text-sm uppercase tracking-[0.3em] text-sky-100 font-semibold">Register</p>
-            <h3 className="mt-4 text-2xl font-semibold text-slate-900">Create your WISHI account in seconds</h3>
-            <form className="mt-8 space-y-4">
-              <input type="text" aria-label="Full name" placeholder="Full name" className="pinterest-input w-full" />
-              <input type="email" aria-label="Email" placeholder="Email address" className="pinterest-input w-full" />
-              <input type="password" aria-label="Password" placeholder="Create password" className="pinterest-input w-full" />
-              <button type="button" onClick={() => setShowAuthModal(true)} className="pinterest-btn w-full py-3">
-                Create account
-              </button>
-            </form>
-            <p className="mt-6 text-sm text-gray-500">Already have an account? <button type="button" onClick={() => handleAction('login')} className="font-semibold text-sky-600">Log in</button></p>
+          <div className="rounded-3xl bg-white p-8 shadow-xl border border-gray-200 flex flex-col items-center text-center">
+            <p className="text-sm uppercase tracking-[0.3em] text-sky-600 font-semibold">Get Started</p>
+            <h3 className="mt-4 text-2xl font-semibold text-slate-900">Join WISHI in one click</h3>
+            <p className="mt-2 text-sm text-slate-500 max-w-xs">Create your account in seconds using Google Sign-In. Start creating wishes and receive matches instantly.</p>
+            <button type="button" onClick={() => router.push(isLoggedIn ? '/wishlist' : '/search')} className="mt-8 flex items-center justify-center gap-3 w-full max-w-xs rounded-full border border-gray-200 bg-white hover:bg-gray-50 px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Continue with Google
+            </button>
+            <p className="mt-6 text-xs text-gray-400">By signing up, you agree to our <a href="/terms" className="underline hover:text-sky-600">Terms</a> & <a href="/privacy" className="underline hover:text-sky-600">Privacy</a></p>
           </div>
         </section>
 
       </main>
 
-      <footer className="border-t border-gray-200 bg-white py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[1.3fr_0.7fr] items-center">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-sky-600 font-semibold">WISHI</p>
-              <p className="mt-4 text-gray-600 max-w-2xl">A modern marketplace for wishlists and curated deals with a Pinterest-inspired browsing experience.</p>
-            </div>
-            <div className="grid gap-2 text-sm text-gray-600">
-              <a href="#" className="hover:text-sky-600">Terms of Service</a>
-              <a href="#" className="hover:text-sky-600">Privacy Policy</a>
-              <a href="#" className="hover:text-sky-600">Help Center</a>
-            </div>
-          </div>
-          <div className="mt-8 text-center text-sm text-gray-500">© 2026 WISHI. All rights reserved.</div>
-        </div>
-      </footer>
+      <Footer />
 
       <MobileBottomNav onHome={handleHome} onSearch={handleSearch} onProfile={handleProfile} />
 
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4 py-6">
-          <div className="w-full max-w-2xl rounded-[32px] bg-white shadow-2xl overflow-hidden">
-            <div className="flex flex-col gap-3 px-8 py-6 border-b border-gray-200 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900">{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
-                <p className="mt-2 text-sm text-slate-600">{authMode === 'login' ? 'Sign in to access saved boards and instant match alerts.' : 'Join WISHI for personalized discovery and wishlist matching.'}</p>
-              </div>
-              <button onClick={() => setShowAuthModal(false)} className="text-slate-500 hover:text-slate-900">Close</button>
-            </div>
-            <div className="px-8 py-8">
-              {authMode === 'register' ? (
-                <div className="grid gap-4">
-                  <input type="text" placeholder="Full name" className="pinterest-input w-full" />
-                  <input type="email" placeholder="Email address" className="pinterest-input w-full" />
-                  <input type="password" placeholder="Password" className="pinterest-input w-full" />
-                  <button onClick={() => setIsLoggedIn(true)} className="pinterest-btn w-full py-3">Create account</button>
-                  <button className="w-full rounded-full border border-gray-200 py-3 text-sm text-slate-700 hover:bg-gray-50" onClick={() => setAuthMode('login')}>
-                    Already have an account? Log in
-                  </button>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  <input type="email" placeholder="Email address" className="pinterest-input w-full" />
-                  <input type="password" placeholder="Password" className="pinterest-input w-full" />
-                  <button onClick={() => setIsLoggedIn(true)} className="pinterest-btn w-full py-3">Log in</button>
-                  <button className="w-full rounded-full border border-gray-200 py-3 text-sm text-slate-700 hover:bg-gray-50" onClick={() => setAuthMode('register')}>
-                    Create a new account
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
