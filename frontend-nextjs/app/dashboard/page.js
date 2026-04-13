@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import { useAuth } from '../../contexts/AuthContext'
+import { api } from '../../lib/api'
 
 const inputClass = 'w-full border-0 border-b border-gray-200 bg-transparent px-0 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-sky-500 transition-colors'
 
@@ -24,6 +25,7 @@ const menuItems = [
 
 // ── Profile Details ──
 function ProfileSection() {
+  const { user } = useAuth()
   const [editing, setEditing] = useState(false)
   const [saved, setSaved] = useState(false)
   const [profile, setProfile] = useState({
@@ -38,14 +40,38 @@ function ProfileSection() {
   })
 
   useEffect(() => {
-    const stored = localStorage.getItem('wishi_profile')
-    if (stored) setProfile(JSON.parse(stored))
-  }, [])
+    // Populate from auth user first, then try API, then localStorage
+    if (user) {
+      setProfile((prev) => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        location: user.location || prev.location,
+        bio: user.bio || prev.bio,
+        website: user.website || prev.website,
+        instagram: user.instagram || prev.instagram,
+        twitter: user.twitter || prev.twitter,
+      }))
+    }
+    api.get('/auth/me').then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data) setProfile((prev) => ({ ...prev, ...data }))
+    }).catch(() => {
+      const stored = localStorage.getItem('wishi_profile')
+      if (stored) setProfile(JSON.parse(stored))
+    })
+  }, [user])
 
   const update = (field, value) => setProfile((p) => ({ ...p, [field]: value }))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     localStorage.setItem('wishi_profile', JSON.stringify(profile))
+    try {
+      await api.put('/auth/me', profile)
+    } catch { /* offline — localStorage is already saved */ }
     setEditing(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -217,8 +243,12 @@ function FeedbackSection() {
   const [hover, setHover] = useState(0)
   const [sent, setSent] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    const message = e.target.querySelector('textarea')?.value
+    try {
+      await api.post('/wishlist/feedback', { rating, message })
+    } catch { /* offline */ }
     setSent(true)
     setRating(0)
     setTimeout(() => setSent(false), 3000)
@@ -338,14 +368,26 @@ function SavedListingsSection() {
   const [savedItems, setSavedItems] = useState([])
 
   useEffect(() => {
-    const stored = localStorage.getItem('wishi_saved_listings')
-    if (stored) setSavedItems(JSON.parse(stored))
+    api.get('/wishlist/saved-listings').then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data && data.length > 0) setSavedItems(data)
+      else {
+        const stored = localStorage.getItem('wishi_saved_listings')
+        if (stored) setSavedItems(JSON.parse(stored))
+      }
+    }).catch(() => {
+      const stored = localStorage.getItem('wishi_saved_listings')
+      if (stored) setSavedItems(JSON.parse(stored))
+    })
   }, [])
 
-  const handleRemove = (id) => {
+  const handleRemove = async (id) => {
     const updated = savedItems.filter((item) => item.id !== id)
     setSavedItems(updated)
     localStorage.setItem('wishi_saved_listings', JSON.stringify(updated))
+    try { await api.del(`/wishlist/saved-listings/${id}`) } catch { /* offline */ }
   }
 
   const mockListings = [
@@ -411,8 +453,38 @@ function MatchHistorySection() {
   const [matches, setMatches] = useState([])
 
   useEffect(() => {
-    const stored = localStorage.getItem('wishi_match_history')
-    if (stored) setMatches(JSON.parse(stored))
+    api.get('/wishlist/wishlists').then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then(async (wishlists) => {
+      if (!wishlists || wishlists.length === 0) throw new Error('no wishlists')
+      // Collect recent matches across all wishlists
+      const allMatches = []
+      for (const wl of wishlists.slice(0, 10)) {
+        try {
+          const res = await api.get(`/wishlist/wishlists/${wl.id}/matches?limit=5`)
+          if (res.ok) {
+            const data = await res.json()
+            for (const m of data) {
+              allMatches.push({
+                id: m.id,
+                wishlistTitle: wl.title || wl.subcategory || `Wishlist #${wl.id}`,
+                matchedItem: m.title || m.product_title || 'Match',
+                matchedAt: m.matched_at || m.created_at,
+                score: m.score || m.match_score || 0,
+              })
+            }
+          }
+        } catch { /* skip */ }
+      }
+      if (allMatches.length > 0) {
+        allMatches.sort((a, b) => new Date(b.matchedAt) - new Date(a.matchedAt))
+        setMatches(allMatches.slice(0, 20))
+      } else throw new Error('no matches')
+    }).catch(() => {
+      const stored = localStorage.getItem('wishi_match_history')
+      if (stored) setMatches(JSON.parse(stored))
+    })
   }, [])
 
   const mockMatches = [
@@ -488,14 +560,43 @@ function NotificationsSection() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem('wishi_notifications')
-    if (stored) setSettings(JSON.parse(stored))
+    api.get('/notification/notification-settings').then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data) {
+        setSettings({
+          emailMatches: data.email_matches ?? true,
+          emailPriceDrops: data.email_price_drops ?? true,
+          emailNewsletter: data.email_newsletter ?? false,
+          pushMatches: data.push_matches ?? true,
+          pushMessages: data.push_messages ?? true,
+          pushPromotions: data.push_promotions ?? false,
+        })
+      } else {
+        const stored = localStorage.getItem('wishi_notifications')
+        if (stored) setSettings(JSON.parse(stored))
+      }
+    }).catch(() => {
+      const stored = localStorage.getItem('wishi_notifications')
+      if (stored) setSettings(JSON.parse(stored))
+    })
   }, [])
 
   const toggle = (key) => setSettings((prev) => ({ ...prev, [key]: !prev[key] }))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     localStorage.setItem('wishi_notifications', JSON.stringify(settings))
+    try {
+      await api.put('/notification/notification-settings', {
+        email_matches: settings.emailMatches,
+        email_price_drops: settings.emailPriceDrops,
+        email_newsletter: settings.emailNewsletter,
+        push_matches: settings.pushMatches,
+        push_messages: settings.pushMessages,
+        push_promotions: settings.pushPromotions,
+      })
+    } catch { /* offline — localStorage is already saved */ }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

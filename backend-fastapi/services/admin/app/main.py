@@ -1,16 +1,23 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional
+import logging
 import psycopg2
 from shared.db.connection import get_db_connection
+from shared.log_config import setup_logging, add_logging_middleware
+
+setup_logging("admin")
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+add_logging_middleware(app)
 
 conn = get_db_connection()
 
 class MatchReviewRequest(BaseModel):
     match_id: int
     action: str
-    reason: str | None = None
+    reason: Optional[str] = None
 
 class MatchReviewResponse(BaseModel):
     match_id: int
@@ -32,6 +39,7 @@ def review(request: MatchReviewRequest):
     if request.action not in ["approve", "reject"]:
         raise HTTPException(status_code=400, detail="action must be approve or reject")
 
+    logger.info(f"Match review: match_id={request.match_id} action={request.action}")
     new_status = "published" if request.action == "approve" else "rejected"
 
     with conn.cursor() as cur:
@@ -40,6 +48,7 @@ def review(request: MatchReviewRequest):
         conn.commit()
 
     if not row:
+        logger.warning(f"Match not found for review: match_id={request.match_id}")
         raise HTTPException(status_code=404, detail="match not found")
 
     return MatchReviewResponse(match_id=request.match_id, status=new_status)

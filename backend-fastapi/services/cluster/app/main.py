@@ -1,11 +1,17 @@
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
+import logging
 import psycopg2
 from datetime import datetime
 from shared.db.connection import get_db_connection
 from shared.user import get_optional_user
+from shared.log_config import setup_logging, add_logging_middleware
+
+setup_logging("cluster")
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+add_logging_middleware(app)
 
 conn = get_db_connection()
 
@@ -55,6 +61,7 @@ def upsert_cluster(payload: ClusterRequest, request: Request):
                 (buyer_count, user["user_id"] if user else None, cluster_id)
             )
             conn.commit()
+            logger.info(f"Cluster updated: id={cluster_id} buyer_count={buyer_count}")
             return ClusterResponse(id=cluster_id, normalized_filters=normalized, buyer_count=buyer_count, created_at=created_at)
 
         cur.execute(
@@ -63,6 +70,7 @@ def upsert_cluster(payload: ClusterRequest, request: Request):
         )
         cluster_id, created_at = cur.fetchone()
         conn.commit()
+        logger.info(f"Cluster created: id={cluster_id} filters={normalized}")
 
     return ClusterResponse(id=cluster_id, normalized_filters=normalized, buyer_count=1, created_at=created_at)
 

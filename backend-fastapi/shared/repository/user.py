@@ -7,6 +7,10 @@ from shared.repository.base import BaseRepository
 from typing import Optional
 from datetime import datetime, timedelta
 import secrets
+import logging
+from passlib.hash import bcrypt
+
+logger = logging.getLogger(__name__)
 
 class UserRepository(BaseRepository[User]):
     """User-specific repository"""
@@ -35,6 +39,26 @@ class UserRepository(BaseRepository[User]):
             User.is_deleted == False,
             User.is_active == True
         ).first()
+
+    def verify_password_login(self, email: str, password: str) -> Optional[User]:
+        """Verify email/password credentials. Returns user or None."""
+        user = self.db.query(User).filter(
+            User.email == email,
+            User.is_deleted == False,
+            User.is_active == True,
+            User.password_hash.isnot(None)
+        ).first()
+        if not user:
+            logger.warning(f"Failed password login: email={email}")
+            return None
+        if not bcrypt.verify(password, user.password_hash):
+            logger.warning(f"Failed password login: email={email}")
+            return None
+        user.last_login_at = datetime.utcnow()
+        user.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(user)
+        return user
     
     def create_or_update_google_user(self, email: str, google_id: str, name: str = None) -> User:
         """Create new user or update existing Google user"""
@@ -65,6 +89,7 @@ class UserRepository(BaseRepository[User]):
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
+        logger.info(f"New Google user created: email={email}")
         return user
     
     def update_user(self, id: int, **kwargs) -> Optional[User]:
@@ -134,4 +159,5 @@ class UserRepository(BaseRepository[User]):
             count += 1
         
         self.db.commit()
+        logger.info(f"Revoked {count} refresh tokens for user_id={user_id}")
         return count

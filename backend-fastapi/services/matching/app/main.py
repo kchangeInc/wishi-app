@@ -1,5 +1,6 @@
 import json
 import threading
+import logging
 from datetime import datetime
 
 import httpx
@@ -7,8 +8,13 @@ import psycopg2
 from fastapi import FastAPI, BackgroundTasks
 from kafka import KafkaConsumer
 from shared.db.connection import get_db_connection
+from shared.log_config import setup_logging, add_logging_middleware
+
+setup_logging("matching")
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+add_logging_middleware(app)
 
 conn = get_db_connection()
 
@@ -38,12 +44,12 @@ def kafka_wishlist_consumer():
     for msg in consumer:
         try:
             data = json.loads(msg.value.decode('utf-8'))
-            print("[matching-service] processing event", data)
+            logger.info(f"Processing Kafka event: {data}")
             wishlist_id = data.get('wishlist_id')
             if wishlist_id:
                 process_wishlist(wishlist_id)
         except Exception as e:
-            print("Error processing event:", e)
+            logger.error(f"Error processing Kafka event: {e}", exc_info=True)
 
 
 def process_wishlist(wishlist_id: int):
@@ -54,7 +60,7 @@ def process_wishlist(wishlist_id: int):
             wish_resp.raise_for_status()
             wish = wish_resp.json()
     except Exception as e:
-        print("Could not fetch wishlist details", e)
+        logger.error(f"Failed to fetch wishlist {wishlist_id}: {e}", exc_info=True)
         return
 
     product = wish.get("title", "")
@@ -81,7 +87,7 @@ def process_wishlist(wishlist_id: int):
             cluster = cluster_resp.json()
             cluster_id = cluster["id"]
     except Exception as e:
-        print("Cluster service failed", e)
+        logger.error(f"Cluster upsert failed for wishlist {wishlist_id}: {e}", exc_info=True)
         return
 
     # 3) Query generation by match-engine
@@ -96,7 +102,7 @@ def process_wishlist(wishlist_id: int):
             query_resp.raise_for_status()
             queries = query_resp.json().get("queries", [])
     except Exception as e:
-        print("Match engine failed", e)
+        logger.warning(f"Match engine query failed: {e}", exc_info=True)
         queries = []
 
     # 4) Scan sources and validate
@@ -158,7 +164,7 @@ def validate_candidate(candidate: dict, product, location, price):
             if resp.status_code == 200:
                 return resp.json()
     except Exception as e:
-        print("Validation call failed", e)
+        logger.warning(f"Validation call failed for {candidate['url']}: {e}")
 
     return {"score": 0, "status": "reject", "details": {"error": "validation_failed"}}
 
@@ -181,7 +187,7 @@ def send_notification(cluster_id, message, recipients):
                 "recipients": recipients or []
             })
     except Exception as e:
-        print("Notification error", e)
+        logger.error(f"Notification send failed for cluster {cluster_id}: {e}")
 
 
 @app.get("/health")

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import { useAuth } from '../../contexts/AuthContext'
+import { api } from '../../lib/api'
 
 const NOTIFICATION_TYPES = {
   match: { icon: Package, bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-100', accent: 'bg-sky-500', label: 'New Match' },
@@ -109,19 +110,47 @@ const cardItem = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, tran
 export default function NotificationsPage() {
   const router = useRouter()
   const { isLoggedIn } = useAuth()
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS)
+  const [notifications, setNotifications] = useState([])
   const [filter, setFilter] = useState('all')
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem('wishi_notifications')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (parsed.length > 0) {
-        setNotifications(parsed)
+    api.get('/notification/notifications').then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data && data.notifications && data.notifications.length > 0) {
+        setNotifications(data.notifications.map((n) => ({
+          id: n.id,
+          type: n.type || 'match',
+          title: n.title,
+          description: n.message || n.description || '',
+          wishlistId: n.wishlist_id,
+          time: new Date(n.created_at).getTime(),
+          read: n.is_read,
+        })))
+      } else {
+        const saved = localStorage.getItem('wishi_notifications')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed.length > 0) setNotifications(parsed)
+          else setNotifications(MOCK_NOTIFICATIONS)
+        } else {
+          setNotifications(MOCK_NOTIFICATIONS)
+        }
       }
-    }
-    setLoaded(true)
+      setLoaded(true)
+    }).catch(() => {
+      const saved = localStorage.getItem('wishi_notifications')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.length > 0) setNotifications(parsed)
+        else setNotifications(MOCK_NOTIFICATIONS)
+      } else {
+        setNotifications(MOCK_NOTIFICATIONS)
+      }
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -130,19 +159,23 @@ export default function NotificationsPage() {
     }
   }, [notifications, loaded])
 
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
+    try { await api.put(`/notification/notifications/${id}/read`) } catch { /* offline */ }
   }
 
-  const markAllRead = () => {
+  const markAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    try { await api.put('/notification/notifications/read-all') } catch { /* offline */ }
   }
 
-  const deleteNotification = (id) => {
+  const deleteNotification = async (id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
+    try { await api.del(`/notification/notifications/${id}`) } catch { /* offline */ }
   }
 
-  const clearAll = () => {
+  const clearAll = async () => {
+    try { await api.del('/notification/notifications') } catch { /* offline */ }
     setNotifications(MOCK_NOTIFICATIONS)
   }
 

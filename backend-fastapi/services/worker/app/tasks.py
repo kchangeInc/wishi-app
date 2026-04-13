@@ -1,10 +1,15 @@
 # services/worker/app/tasks.py
 
+import logging
 import httpx
 import psycopg2
 from celery import Celery
 from datetime import datetime, timedelta
 from shared.db.connection import get_db_connection
+from shared.log_config import setup_logging
+
+setup_logging("worker")
+logger = logging.getLogger(__name__)
 
 celery = Celery(
     "worker",
@@ -23,17 +28,17 @@ conn = get_db_connection()
 
 @celery.task(name="match_wishlist")
 def match_wishlist(wishlist_id):
-    print(f"[worker] received match_wishlist for wishlist {wishlist_id}")
+    logger.info(f"Received match_wishlist task: wishlist_id={wishlist_id}")
     try:
         with httpx.Client(timeout=10.0) as client:
             client.post(f"http://matching-service:8004/process_wishlist/{wishlist_id}")
     except Exception as e:
-        print("Failed to forward to matching-service", e)
+        logger.error(f"Failed to forward wishlist {wishlist_id} to matching-service: {e}", exc_info=True)
 
 
 @celery.task(name="run_validation_pipeline")
 def run_validation_pipeline():
-    print("[worker] validating matches pipeline")
+    logger.info("Starting validation pipeline run")
     with conn.cursor() as cur:
         cur.execute("SELECT id, url, cluster_id, score, status FROM matches WHERE status IN ('auto_publish','admin_review', 'new') ORDER BY last_validated_at NULLS FIRST LIMIT 50")
         rows = cur.fetchall()
@@ -69,7 +74,7 @@ def run_validation_pipeline():
                             # notify cluster
                             notify_cluster(cluster_id, f"🔥 Match validated and auto-published: {url}")
             except Exception as e:
-                print("Validation pipeline error", e)
+                logger.error(f"Validation pipeline error for match {match_id}: {e}", exc_info=True)
 
 
 def notify_cluster(cluster_id: int, message: str):
@@ -82,4 +87,4 @@ def notify_cluster(cluster_id: int, message: str):
                 "recipients": ["admin@wishi.local"]
             })
     except Exception as e:
-        print("Notify cluster failed", e)
+        logger.error(f"Notify cluster {cluster_id} failed: {e}", exc_info=True)

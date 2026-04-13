@@ -3,6 +3,9 @@
 
 from sqlalchemy.orm import Session
 from typing import TypeVar, Generic, List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
@@ -17,6 +20,7 @@ class BaseRepository(Generic[T]):
         self.db.add(instance)
         self.db.commit()
         self.db.refresh(instance)
+        logger.debug(f"Created {self.model.__name__} id={instance.id}")
         return instance
 
     def get_by_id(self, id: int) -> Optional[T]:
@@ -35,6 +39,7 @@ class BaseRepository(Generic[T]):
                 setattr(instance, key, value)
             self.db.commit()
             self.db.refresh(instance)
+            logger.debug(f"Updated {self.model.__name__} id={id}")
         return instance
 
     def delete(self, id: int) -> bool:
@@ -43,6 +48,7 @@ class BaseRepository(Generic[T]):
         if instance:
             self.db.delete(instance)
             self.db.commit()
+            logger.debug(f"Deleted {self.model.__name__} id={id}")
             return True
         return False
 
@@ -54,4 +60,5 @@ class BaseRepository(Generic[T]):
             instance.updated_by = user_id
             self.db.commit()
             self.db.refresh(instance)
+            logger.debug(f"Soft-deleted {self.model.__name__} id={id}")
         return instance

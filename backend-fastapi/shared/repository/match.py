@@ -1,11 +1,14 @@
 # shared/repository/match.py
 """Match repository - handles match CRUD operations"""
 
+import logging
 from sqlalchemy.orm import Session
 from shared.models import Match
 from shared.repository.base import BaseRepository
 from typing import Optional, List
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class MatchRepository(BaseRepository[Match]):
     """Match-specific repository"""
@@ -78,6 +81,14 @@ class MatchRepository(BaseRepository[Match]):
             self.db.refresh(match)
         return match
     
+    def get_by_wishlist(self, wishlist_id: int, skip: int = 0, limit: int = 50) -> List[Match]:
+        """Get matches for a specific wishlist"""
+        return self.db.query(Match).filter(
+            Match.wishlist_id == wishlist_id,
+            Match.is_deleted == False,
+            Match.status.in_(["published", "auto_publish"]),
+        ).order_by(Match.score.desc()).offset(skip).limit(limit).all()
+
     def get_active_matches(self, skip: int = 0, limit: int = 100) -> List[Match]:
         """Get active published matches"""
         return self.db.query(Match).filter(

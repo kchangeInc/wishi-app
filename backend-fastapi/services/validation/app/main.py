@@ -1,9 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import logging
 import httpx
 from datetime import datetime
+from shared.log_config import setup_logging, add_logging_middleware
+
+setup_logging("validation")
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+add_logging_middleware(app)
 
 class ValidationRequest(BaseModel):
     url: str
@@ -82,6 +88,7 @@ def compute_score(req: ValidationRequest, metadata: dict):
 def validate(req: ValidationRequest):
     ok, reason = check_url(req.url)
     if not ok:
+        logger.warning(f"URL validation rejected: url={req.url} reason={reason}")
         raise HTTPException(status_code=400, detail=f"URL check failed: {reason}")
 
     with httpx.Client(timeout=10.0) as client:
@@ -104,5 +111,6 @@ def validate(req: ValidationRequest):
 
     metadata = {"title": title, "description": description}
     score, status, details = compute_score(req, metadata)
+    logger.info(f"Validated: url={req.url} score={score} status={status}")
 
     return ValidationResult(url=req.url, score=score, status=status, details=details)

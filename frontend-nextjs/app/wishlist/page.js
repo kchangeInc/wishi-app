@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import WishlistForm from '../../features/wishlist/WishlistForm'
 import { getFields } from '../../features/wishlist/wishlistFieldConfig'
 import { getMatchCount } from '../../features/wishlist/mockMatches'
+import { api } from '../../lib/api'
 
 const categoryIcons = { Automobile: Car, Electronics: Smartphone, 'Real Estate': Home, Fashion: Shirt, 'Home & Living': Sofa }
 const categoryColors = {
@@ -67,26 +68,56 @@ export default function WishlistPage() {
       router.push('/')
       return
     }
-    const stored = localStorage.getItem('wishi_wishlists')
-    if (stored) setWishlists(JSON.parse(stored))
+    api.get('/wishlist/wishlists').then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data && data.length > 0) setWishlists(data)
+      else {
+        const stored = localStorage.getItem('wishi_wishlists')
+        if (stored) setWishlists(JSON.parse(stored))
+      }
+    }).catch(() => {
+      const stored = localStorage.getItem('wishi_wishlists')
+      if (stored) setWishlists(JSON.parse(stored))
+    })
   }, [isLoggedIn, router])
 
-  const handleCreate = (data) => {
+  const handleCreate = async (data) => {
     const now = new Date()
     const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    const newItem = { ...data, id: Date.now(), createdAt: now.toISOString(), expiresAt: expires.toISOString() }
-    const updated = [newItem, ...wishlists]
-    setWishlists(updated)
-    localStorage.setItem('wishi_wishlists', JSON.stringify(updated))
+    const localItem = { ...data, id: Date.now(), createdAt: now.toISOString(), expiresAt: expires.toISOString() }
+
+    try {
+      const res = await api.post('/wishlist/wishlists', {
+        category_id: data.category_id,
+        subcategory_id: data.subcategory_id,
+        title: data.title || data.subcategory || 'My Wishlist',
+        notes: data.fields?.notes || '',
+        field_values: data.fields || {},
+        preferred_marketplace_ids: data.preferred_marketplace_ids || [],
+      })
+      if (res.ok) {
+        const created = await res.json()
+        const updated = [{ ...localItem, ...created }, ...wishlists]
+        setWishlists(updated)
+        localStorage.setItem('wishi_wishlists', JSON.stringify(updated))
+      } else throw new Error('create failed')
+    } catch {
+      const updated = [localItem, ...wishlists]
+      setWishlists(updated)
+      localStorage.setItem('wishi_wishlists', JSON.stringify(updated))
+    }
     setSuccess(true)
     setTab('list')
     setTimeout(() => setSuccess(false), 3000)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const updated = wishlists.filter((w) => w.id !== id)
     setWishlists(updated)
     localStorage.setItem('wishi_wishlists', JSON.stringify(updated))
+    try { await api.del(`/wishlist/wishlists/${id}`) } catch { /* offline */ }
   }
 
   if (!isLoggedIn) return null

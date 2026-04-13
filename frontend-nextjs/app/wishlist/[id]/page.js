@@ -10,6 +10,7 @@ import Footer from '../../../components/Footer'
 import { useAuth } from '../../../contexts/AuthContext'
 import { generateMatches, MARKETPLACE_SOURCES } from '../../../features/wishlist/mockMatches'
 import { getFields } from '../../../features/wishlist/wishlistFieldConfig'
+import { api } from '../../../lib/api'
 
 const categoryIcons = { Automobile: Car, Electronics: Smartphone, 'Real Estate': Home, Fashion: Shirt, 'Home & Living': Sofa }
 const categoryGradients = {
@@ -34,41 +35,89 @@ export default function MatchesPage() {
   const params = useParams()
   const { isLoggedIn } = useAuth()
   const [wishlist, setWishlist] = useState(null)
+  const [apiMatches, setApiMatches] = useState(null)
   const [sortBy, setSortBy] = useState('match')
   const [activeMarketplaces, setActiveMarketplaces] = useState([])
   const [removedIds, setRemovedIds] = useState(new Set())
   const [favouriteIds, setFavouriteIds] = useState(new Set())
   useEffect(() => {
     if (!isLoggedIn) { router.push('/'); return }
-    const stored = localStorage.getItem('wishi_wishlists')
-    if (stored) {
-      const all = JSON.parse(stored)
-      const found = all.find((w) => String(w.id) === String(params.id))
-      if (found) {
-        setWishlist(found)
-        // Default to preferred marketplaces if set, otherwise all
-        if (found.preferredMarketplaces && found.preferredMarketplaces.length > 0) {
-          setActiveMarketplaces(found.preferredMarketplaces)
+
+    // Try API first for wishlist details
+    api.get(`/wishlist/wishlists/${params.id}`).then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data) {
+        setWishlist(data)
+        initMarketplaces(data)
+      } else throw new Error('not found')
+    }).catch(() => {
+      // Fallback to localStorage
+      const stored = localStorage.getItem('wishi_wishlists')
+      if (stored) {
+        const all = JSON.parse(stored)
+        const found = all.find((w) => String(w.id) === String(params.id))
+        if (found) {
+          setWishlist(found)
+          initMarketplaces(found)
         } else {
-          const sources = MARKETPLACE_SOURCES[found.category] || []
-          setActiveMarketplaces(sources.map((s) => s.name))
+          router.push('/wishlist')
         }
-        // Load removed and favourited match ids
-        const removed = localStorage.getItem(`wishi_removed_${params.id}`)
-        if (removed) setRemovedIds(new Set(JSON.parse(removed)))
-        const favs = localStorage.getItem(`wishi_favourites_${params.id}`)
-        if (favs) setFavouriteIds(new Set(JSON.parse(favs)))
       } else {
         router.push('/wishlist')
       }
-    } else {
-      router.push('/wishlist')
-    }
+    })
+
+    // Try to load matches from API
+    api.get(`/wishlist/wishlists/${params.id}/matches`).then((res) => {
+      if (res.ok) return res.json()
+      return null
+    }).then((data) => {
+      if (data && data.length > 0) {
+        setApiMatches(data.map((m) => ({
+          id: m.id,
+          title: m.title || m.product_title,
+          price: m.price,
+          formattedPrice: m.formatted_price || `₹${Number(m.price).toLocaleString('en-IN')}`,
+          location: m.location || m.city || '',
+          matchScore: m.score || m.match_score || 0,
+          source: { name: m.source_name || m.marketplace_source || 'Unknown', color: m.source_color || '#6b7280', url: m.source_url || m.url || '#' },
+          specs: m.specs || [],
+          sellerTag: m.seller_tag || null,
+          featured: m.is_featured || false,
+          postedAgo: m.posted_ago || '',
+          is_favourite: m.is_favourite || false,
+        })))
+        // Set initial favourites from API response
+        const favIds = new Set(data.filter((m) => m.is_favourite).map((m) => m.id))
+        setFavouriteIds(favIds)
+      }
+    }).catch(() => { /* will use mock matches */ })
+
+    // Load removed and favourited match ids from localStorage as fallback
+    const removed = localStorage.getItem(`wishi_removed_${params.id}`)
+    if (removed) setRemovedIds(new Set(JSON.parse(removed)))
+    const favs = localStorage.getItem(`wishi_favourites_${params.id}`)
+    if (favs) setFavouriteIds((prev) => prev.size > 0 ? prev : new Set(JSON.parse(favs)))
   }, [isLoggedIn, params.id, router])
 
-  const matches = useMemo(() => wishlist ? generateMatches(wishlist) : [], [wishlist])
+  const initMarketplaces = (wl) => {
+    if (wl.preferredMarketplaces && wl.preferredMarketplaces.length > 0) {
+      setActiveMarketplaces(wl.preferredMarketplaces)
+    } else {
+      const sources = MARKETPLACE_SOURCES[wl.category] || []
+      setActiveMarketplaces(sources.map((s) => s.name))
+    }
+  }
 
-  const toggleFavourite = (matchId) => {
+  const matches = useMemo(() => {
+    if (apiMatches && apiMatches.length > 0) return apiMatches
+    return wishlist ? generateMatches(wishlist) : []
+  }, [wishlist, apiMatches])
+
+  const toggleFavourite = async (matchId) => {
+    const isFav = favouriteIds.has(matchId)
     setFavouriteIds((prev) => {
       const next = new Set(prev)
       if (next.has(matchId)) next.delete(matchId)
@@ -76,15 +125,25 @@ export default function MatchesPage() {
       localStorage.setItem(`wishi_favourites_${params.id}`, JSON.stringify([...next]))
       return next
     })
+    try {
+      if (isFav) {
+        await api.del(`/wishlist/wishlists/${params.id}/matches/${matchId}/favourite`)
+      } else {
+        await api.post(`/wishlist/wishlists/${params.id}/matches/${matchId}/favourite`)
+      }
+    } catch { /* offline */ }
   }
 
-  const removeMatch = (matchId) => {
+  const removeMatch = async (matchId) => {
     setRemovedIds((prev) => {
       const next = new Set(prev)
       next.add(matchId)
       localStorage.setItem(`wishi_removed_${params.id}`, JSON.stringify([...next]))
       return next
     })
+    try {
+      await api.post(`/wishlist/wishlists/${params.id}/matches/${matchId}/dismiss`)
+    } catch { /* offline */ }
   }
 
   const sorted = useMemo(() => {

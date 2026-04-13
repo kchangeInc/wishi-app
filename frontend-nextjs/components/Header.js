@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Search, ShoppingCart, Menu, X, Heart, User, LogOut, Settings, MessageSquare, ChevronDown, ChevronRight, MapPin, Bell, Bot } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useGoogleReady } from './Providers'
 import { INDIAN_CITIES, CATEGORIES } from '../features/wishlist/wishlistFieldConfig'
 
 // Build search suggestions from categories, subcategories, and brands
@@ -36,7 +37,8 @@ const SEARCH_SUGGESTIONS = (() => {
 
 export default function Header() {
   const router = useRouter()
-  const { isLoggedIn, login, logout } = useAuth()
+  const { isLoggedIn, user, login, loginEmail, loginDemo, logout } = useAuth()
+  const googleReady = useGoogleReady()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -46,6 +48,10 @@ export default function Header() {
   const [locationQuery, setLocationQuery] = useState('')
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
+  const [loginEmailValue, setLoginEmailValue] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
   const profileRef = useRef(null)
   const locationRef = useRef(null)
   const searchRef = useRef(null)
@@ -101,15 +107,58 @@ export default function Header() {
     setAuthMode(mode)
     setShowAuthModal(true)
     setMenuOpen(false)
+    setLoginEmailValue('')
+    setLoginPassword('')
+    setLoginError('')
   }
 
   const handleLogin = () => {
-    login()
+    if (googleReady) {
+      try {
+        // Use Google Identity Services directly (loaded by GoogleOAuthProvider)
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+          scope: 'email profile',
+          callback: async (response) => {
+            if (response.access_token) {
+              try {
+                await login(response.access_token)
+                setShowAuthModal(false)
+              } catch {
+                loginDemo()
+                setShowAuthModal(false)
+              }
+            }
+          },
+        })
+        client.requestAccessToken()
+        return
+      } catch {
+        // Google sign-in failed, fall through to demo
+      }
+    }
+    loginDemo()
     setShowAuthModal(false)
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleEmailLogin = async (e) => {
+    e.preventDefault()
+    setLoginError('')
+    setLoginLoading(true)
+    try {
+      await loginEmail(loginEmailValue, loginPassword)
+      setShowAuthModal(false)
+      setLoginEmailValue('')
+      setLoginPassword('')
+    } catch (err) {
+      setLoginError(err.message || 'Invalid email or password')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    await logout()
     setShowProfileMenu(false)
     setMenuOpen(false)
     router.push('/')
@@ -246,7 +295,7 @@ export default function Header() {
                       className="flex items-center gap-1.5 rounded-full border-2 border-sky-500 pl-0.5 pr-2.5 py-0.5 hover:shadow-md transition"
                     >
                       <div className="w-8 h-8 rounded-full bg-sky-600 flex items-center justify-center text-white text-xs font-bold">
-                        U
+                        {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
                     </button>
@@ -254,8 +303,8 @@ export default function Header() {
                     {showProfileMenu && (
                       <div className="absolute right-0 mt-2 w-52 rounded-xl bg-white border border-gray-200 shadow-lg py-1.5 z-50">
                         <div className="px-4 py-2.5 border-b border-gray-100">
-                          <p className="text-sm font-semibold text-slate-900">User</p>
-                          <p className="text-xs text-slate-400">user@wishi.com</p>
+                          <p className="text-sm font-semibold text-slate-900">{user?.display_name || user?.name || 'User'}</p>
+                          <p className="text-xs text-slate-400">{user?.email || ''}</p>
                         </div>
                         <div className="py-1">
                           <Link href="/dashboard" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-gray-50 transition">
@@ -289,11 +338,11 @@ export default function Header() {
                 <>
                   <Link href="/about" className="text-sm font-medium text-slate-600 hover:text-sky-600 transition px-3 py-2">About</Link>
                   <Link href="/how-it-works" className="text-sm font-medium text-slate-600 hover:text-sky-600 transition px-3 py-2">How It Works</Link>
-                  <Link href="/help" className="text-sm font-medium text-slate-600 hover:text-sky-600 transition px-3 py-2">Help</Link>
-                  <button onClick={() => openAuth('login')} className="text-sm font-medium text-slate-600 hover:text-sky-600 transition px-3 py-2">Login</button>
-                  <button onClick={() => openAuth('register')} className="rounded-full bg-sky-600 hover:bg-sky-700 px-5 py-2 text-sm font-semibold text-white transition ml-1">
+                  {/* <Link href="/help" className="text-sm font-medium text-slate-600 hover:text-sky-600 transition px-3 py-2">Help</Link> */}
+                  <button onClick={() => openAuth('login')} className="rounded-full bg-sky-600 hover:bg-sky-700 px-5 py-2 text-sm font-semibold text-white transition ml-1">Login</button>
+                  {/* <button onClick={() => openAuth('register')} className="rounded-full bg-sky-600 hover:bg-sky-700 px-5 py-2 text-sm font-semibold text-white transition ml-1">
                     Signup
-                  </button>
+                  </button> */}
                 </>
               )}
             </div>
@@ -419,11 +468,55 @@ export default function Header() {
               </h2>
               <p className="mt-2 text-sm text-slate-500 max-w-xs mx-auto">
                 {authMode === 'login'
-                  ? 'Sign in with your Google account to get started. No passwords. No hassle. Just one click.'
+                  ? 'Sign in with your email or Google account.'
                   : 'Create your account in seconds using Google Sign-In. Start creating wishes and receive matches instantly.'}
               </p>
             </div>
             <div className="px-8 py-6">
+              {/* Email/Password form */}
+              <form onSubmit={handleEmailLogin} className="space-y-3 mb-4">
+                <div>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={loginEmailValue}
+                    onChange={(e) => { setLoginEmailValue(e.target.value); setLoginError('') }}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={loginPassword}
+                    onChange={(e) => { setLoginPassword(e.target.value); setLoginError('') }}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+                {loginError && (
+                  <p className="text-xs text-red-500 text-center">{loginError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={loginLoading}
+                  className="w-full rounded-full bg-sky-600 hover:bg-sky-700 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {loginLoading ? 'Signing in...' : 'Sign in'}
+                </button>
+              </form>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-slate-400">or</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              {/* Google button */}
               <button
                 onClick={handleLogin}
                 className="flex items-center justify-center gap-3 w-full rounded-full border border-gray-200 bg-white hover:bg-gray-50 px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]"

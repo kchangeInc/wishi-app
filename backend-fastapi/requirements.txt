@@ -6,3 +6,10 @@ pytest==7.4.0
 pytest-asyncio==0.21.1
 prometheus-client==0.17.1
 slowapi==0.1.9
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+google-auth==2.27.0
+kafka-python==2.0.2
+celery==5.3.6
+redis==5.0.1
+passlib[bcrypt]==1.7.4

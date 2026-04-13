@@ -1,221 +1,245 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from authlib.integrations.starlette_client import OAuth
-from authlib.integrations.base_client import OAuthError
-import jwt
+from typing import Optional
 from datetime import datetime, timedelta
-import psycopg2
+import jwt as pyjwt
+import os
 import secrets
+import logging
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 from shared.auth import create_token, verify_token
-from shared.db.connection import get_db_connection
+from shared.db.session import get_db_session, SessionLocal
+from shared.repository.user import UserRepository
+from shared.log_config import setup_logging, add_logging_middleware
+
+setup_logging("auth")
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+add_logging_middleware(app)
 
-# Database connection
-conn = get_db_connection()
-
-# JWT settings
-SECRET_KEY = "your-secret-key-change-in-prod"
+# Settings from env
+SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_TO_ENV")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
-
-# OAuth setup
-oauth = OAuth()
-oauth.register(
-    name='google',
-    client_id="GOOGLE_CLIENT_ID",
-    client_secret="GOOGLE_CLIENT_SECRET",
-    server_metadata_url="https://accounts.google.com/.well-known/openid_configuration",
-    client_kwargs={"scope": "openid email profile"},
-)
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 security = HTTPBearer()
 
+# ---- Pydantic models ----
+
+class GoogleTokenRequest(BaseModel):
+    id_token: str
+
+class EmailLoginRequest(BaseModel):
+    email: str
+    password: str
+
 class TokenRequest(BaseModel):
     grant_type: str
-    code: str | None = None
-    refresh_token: str | None = None
-    redirect_uri: str | None = None
-    code_verifier: str | None = None
+    refresh_token: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "Bearer"
     expires_in: int
-    refresh_token: str | None = None
+    refresh_token: Optional[str] = None
+    user: Optional[dict] = None
 
 class UserInfo(BaseModel):
     id: int
     email: str
-    name: str | None = None
-    display_name: str | None = None
-    google_id: str | None = None
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    google_id: Optional[str] = None
     role: str = "buyer"
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    website: Optional[str] = None
+    instagram: Optional[str] = None
+    twitter: Optional[str] = None
     is_active: bool = True
-    is_deleted: bool = False
-    last_login_at: datetime | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-    created_by: int | None = None
-    updated_by: int | None = None
-    version: int = 1
+    last_login_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
-def _ensure_tables():
-    # Tables are now managed by Alembic migrations
-    pass
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    website: Optional[str] = None
+    instagram: Optional[str] = None
+    twitter: Optional[str] = None
 
-@app.on_event("startup")
-def startup():
-    _ensure_tables()
+# ---- helpers ----
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    user_id = data.get("sub")
-    email = data.get("email")
-    return create_token(user_id, email), datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+def _user_to_dict(user) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "display_name": user.display_name,
+        "google_id": user.google_id,
+        "role": user.role,
+        "phone": user.phone,
+        "location": user.location,
+        "bio": user.bio,
+        "avatar_url": user.avatar_url,
+        "website": user.website,
+        "instagram": user.instagram,
+        "twitter": user.twitter,
+        "is_active": user.is_active,
+        "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }
 
-def create_refresh_token(user_id: int):
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    with conn.cursor() as cur:
-        cur.execute(
-            "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (%s, %s, %s)",
-            (user_id, token, expires_at)
-        )
-        conn.commit()
-    return token
-
-def verify_access_token(token: str):
+def _issue_tokens(user) -> TokenResponse:
+    access_token = create_token(user.id, user.email, user.role or "buyer")
+    db = SessionLocal()
     try:
-        return verify_token(token)
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        repo = UserRepository(db)
+        refresh = repo.create_refresh_token(user.id, REFRESH_TOKEN_EXPIRE_DAYS)
+    finally:
+        db.close()
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    payload = verify_access_token(credentials.credentials)
-    user_id = payload.get("sub")
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT id, email, name, display_name, google_id, role, is_active, is_deleted,
-                   last_login_at, created_at, updated_at, created_by, updated_by, version
-            FROM users WHERE id = %s AND is_deleted = FALSE
-        """, (user_id,))
-        row = cur.fetchone()
-    if not row or not row[6]:  # is_active
-        raise HTTPException(status_code=401, detail="User not found or inactive")
-    return UserInfo(
-        id=row[0], email=row[1], name=row[2], display_name=row[3], google_id=row[4],
-        role=row[5], is_active=row[6], is_deleted=row[7], last_login_at=row[8],
-        created_at=row[9], updated_at=row[10], created_by=row[11], updated_by=row[12], version=row[13]
-    )
-
-@app.get("/login/google")
-async def login_google(request: Request):
-    redirect_uri = "http://localhost:8000/auth/callback"
-    return await oauth.google.authorize_redirect(request, redirect_uri)
-
-@app.get("/callback")
-async def auth_callback(request: Request):
-    try:
-        token = await oauth.google.authorize_access_token(request)
-    except OAuthError as error:
-        raise HTTPException(status_code=400, detail=error.error)
-
-    user_info = token.get('userinfo')
-    if not user_info:
-        raise HTTPException(status_code=400, detail="No user info")
-
-    # Upsert user with enhanced fields
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO users (email, name, display_name, google_id, role, is_active, last_login_at, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, 'buyer', TRUE, NOW(), NOW(), NOW())
-            ON CONFLICT (google_id) DO UPDATE SET
-                name = EXCLUDED.name,
-                display_name = EXCLUDED.display_name,
-                last_login_at = NOW(),
-                updated_at = NOW()
-            RETURNING id
-        """, (user_info['email'], user_info.get('name'), user_info.get('name'), user_info['sub']))
-        user_id = cur.fetchone()[0]
-        conn.commit()
-
-    # Create tokens
-    access_token, expire = create_access_token({"sub": user_id, "email": user_info['email']})
-    refresh_token = create_refresh_token(user_id)
-
+    logger.info(f"Tokens issued for user_id={user.id} email={user.email}")
     return TokenResponse(
         access_token=access_token,
-        expires_in=int((expire - datetime.utcnow()).total_seconds()),
-        refresh_token=refresh_token
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        refresh_token=refresh,
+        user=_user_to_dict(user),
     )
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = verify_token(credentials.credentials)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    user_id = payload.get("sub")
+    db = SessionLocal()
+    try:
+        repo = UserRepository(db)
+        user = repo.get_active_user(user_id)
+    finally:
+        db.close()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    return user
+
+# ---- endpoints ----
+
+@app.post("/google-token", response_model=TokenResponse)
+def google_token_login(body: GoogleTokenRequest):
+    """Frontend-initiated: verify Google ID token, upsert user, return JWT"""
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            body.id_token, google_requests.Request(), GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        logger.warning("Google token verification failed", exc_info=True)
+        raise HTTPException(status_code=401, detail="Invalid Google ID token")
+
+    email = idinfo.get("email")
+    google_id = idinfo.get("sub")
+    name = idinfo.get("name")
+    avatar = idinfo.get("picture")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not available from Google")
+
+    db = SessionLocal()
+    try:
+        repo = UserRepository(db)
+        user = repo.create_or_update_google_user(email, google_id, name)
+        if avatar and not user.avatar_url:
+            repo.update_user(user.id, avatar_url=avatar)
+            db.refresh(user)
+    finally:
+        db.close()
+
+    return _issue_tokens(user)
+
+@app.post("/login", response_model=TokenResponse)
+def email_password_login(body: EmailLoginRequest):
+    """Login with email and password (for pre-seeded company/demo users)"""
+    logger.info(f"Email login attempt: email={body.email}")
+    db = SessionLocal()
+    try:
+        repo = UserRepository(db)
+        user = repo.verify_password_login(body.email, body.password)
+        if not user:
+            logger.warning(f"Failed email login: email={body.email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+    finally:
+        db.close()
+
+    return _issue_tokens(user)
 
 @app.post("/token", response_model=TokenResponse)
 def token_endpoint(request: TokenRequest):
-    if request.grant_type == "authorization_code":
-        # Handle auth code flow (simplified, in prod use PKCE)
-        # For now, assume code is handled in callback
-        raise HTTPException(status_code=400, detail="Use /callback for auth code")
-
-    elif request.grant_type == "refresh_token":
-        if not request.refresh_token:
-            raise HTTPException(status_code=400, detail="Refresh token required")
-
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT user_id, expires_at, revoked FROM refresh_tokens WHERE token = %s",
-                (request.refresh_token,)
-            )
-            row = cur.fetchone()
-        if not row or row[2] or datetime.utcnow() > row[1]:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-        user_id = row[0]
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT email, name, display_name FROM users
-                WHERE id = %s AND is_deleted = FALSE AND is_active = TRUE
-            """, (user_id,))
-            user_row = cur.fetchone()
-        if not user_row:
-            raise HTTPException(status_code=401, detail="User not found or inactive")
-        email = user_row[0]
-
-        # Revoke old refresh token
-        with conn.cursor() as cur:
-            cur.execute("UPDATE refresh_tokens SET revoked = TRUE WHERE token = %s", (request.refresh_token,))
-            conn.commit()
-
-        # Issue new tokens
-        access_token, expire = create_access_token({"sub": user_id, "email": email})
-        refresh_token = create_refresh_token(user_id)
-
-        return TokenResponse(
-            access_token=access_token,
-            expires_in=int((expire - datetime.utcnow()).total_seconds()),
-            refresh_token=refresh_token
-        )
-
-    else:
+    if request.grant_type != "refresh_token":
         raise HTTPException(status_code=400, detail="Unsupported grant_type")
+    if not request.refresh_token:
+        raise HTTPException(status_code=400, detail="Refresh token required")
+
+    db = SessionLocal()
+    try:
+        repo = UserRepository(db)
+        user_id = repo.validate_refresh_token(request.refresh_token)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        repo.revoke_refresh_token(request.refresh_token, user_id)
+        user = repo.get_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+    finally:
+        db.close()
+
+    return _issue_tokens(user)
 
 @app.get("/validate")
-def validate_token(current_user: UserInfo = Depends(get_current_user)):
-    return {"valid": True, "user": current_user}
+def validate_token(current_user=Depends(get_current_user)):
+    return {"valid": True, "user": _user_to_dict(current_user)}
 
 @app.post("/logout")
 def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    payload = verify_access_token(credentials.credentials)
+    try:
+        payload = verify_token(credentials.credentials)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
     user_id = payload.get("sub")
-    with conn.cursor() as cur:
-        cur.execute("UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = %s", (user_id,))
-        conn.commit()
+    db = SessionLocal()
+    try:
+        repo = UserRepository(db)
+        repo.revoke_all_user_tokens(user_id)
+    finally:
+        db.close()
+    logger.info(f"User logout: user_id={user_id}")
     return {"message": "Logged out"}
 
-@app.get("/me", response_model=UserInfo)
-def get_me(current_user: UserInfo = Depends(get_current_user)):
-    return current_user
+@app.get("/me")
+def get_me(current_user=Depends(get_current_user)):
+    return _user_to_dict(current_user)
+
+@app.put("/me")
+def update_me(body: ProfileUpdate, current_user=Depends(get_current_user)):
+    updates = body.dict(exclude_unset=True)
+    if not updates:
+        return _user_to_dict(current_user)
+    db = SessionLocal()
+    try:
+        repo = UserRepository(db)
+        user = repo.update_user(current_user.id, **updates)
+    finally:
+        db.close()
+    return _user_to_dict(user)
 
 @app.get("/health")
 def health():

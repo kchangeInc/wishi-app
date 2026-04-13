@@ -1,11 +1,14 @@
 # shared/repository/cluster.py
 """Cluster repository - handles cluster CRUD operations"""
 
+import logging
 from sqlalchemy.orm import Session
 from shared.models import Cluster
 from shared.repository.base import BaseRepository
 from typing import Optional, List
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class ClusterRepository(BaseRepository[Cluster]):
     """Cluster-specific repository"""

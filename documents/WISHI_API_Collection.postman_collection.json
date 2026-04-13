@@ -1,0 +1,902 @@
+{
+	"info": {
+		"name": "WISHI API",
+		"description": "Complete API collection for the WISHI demand-first marketplace platform.\n\nAll authenticated endpoints require a Bearer token in the Authorization header.\nThe gateway proxies requests to internal services via /{service}/{path}.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "wishlist_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "match_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "notification_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "listing_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Gateway",
+			"description": "Gateway-level endpoints (health, metrics)",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Check gateway health status."
+					}
+				},
+				{
+					"name": "Metrics (Prometheus)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/metrics",
+							"host": ["{{base_url}}"],
+							"path": ["metrics"]
+						},
+						"description": "Prometheus metrics endpoint."
+					}
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"description": "Authentication & user profile endpoints.\nGateway prefix: /auth/",
+			"item": [
+				{
+					"name": "Google Token Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.access_token) {",
+									"    pm.collectionVariables.set('access_token', json.access_token);",
+									"}",
+									"if (json.refresh_token) {",
+									"    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id_token\": \"<GOOGLE_ID_TOKEN>\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/google-token",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "google-token"]
+						},
+						"description": "Exchange a Google ID token for WISHI access + refresh tokens. Public endpoint."
+					}
+				},
+				{
+					"name": "Email/Password Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.access_token) {",
+									"    pm.collectionVariables.set('access_token', json.access_token);",
+									"}",
+									"if (json.refresh_token) {",
+									"    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"demo@wishi.in\",\n    \"password\": \"demo123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login with pre-seeded email and password. Returns WISHI access + refresh tokens.\n\nDemo accounts:\n- demo@wishi.in / demo123 (buyer)\n- seller@wishi.in / seller123 (seller)\n- admin@wishi.in / admin123 (admin)\n\nPublic endpoint."
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.access_token) {",
+									"    pm.collectionVariables.set('access_token', json.access_token);",
+									"}",
+									"if (json.refresh_token) {",
+									"    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"grant_type\": \"refresh_token\",\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/token",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "token"]
+						},
+						"description": "Exchange a refresh token for a new access + refresh token pair. Public endpoint."
+					}
+				},
+				{
+					"name": "Validate Token",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/validate",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "validate"]
+						},
+						"description": "Validate the current access token and return user info."
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "logout"]
+						},
+						"description": "Revoke all refresh tokens for the current user."
+					}
+				},
+				{
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "me"]
+						},
+						"description": "Get the authenticated user's full profile."
+					}
+				},
+				{
+					"name": "Update My Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"John Doe\",\n    \"display_name\": \"johnd\",\n    \"phone\": \"+91-9876543210\",\n    \"location\": \"Mumbai\",\n    \"bio\": \"Avid deal hunter\",\n    \"website\": \"https://example.com\",\n    \"instagram\": \"@johnd\",\n    \"twitter\": \"@johnd\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "me"]
+						},
+						"description": "Update the authenticated user's profile. Only send fields that need updating."
+					}
+				},
+				{
+					"name": "Auth Health",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/health",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "health"]
+						},
+						"description": "Auth service health check. Public endpoint."
+					}
+				}
+			]
+		},
+		{
+			"name": "Wishlist",
+			"description": "Wishlist CRUD, matches, favourites, dismiss.\nGateway prefix: /wishlist/",
+			"item": [
+				{
+					"name": "Categories & Lookups",
+					"description": "Public lookup endpoints for categories, cities, and marketplace sources.",
+					"item": [
+						{
+							"name": "Get Categories",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/categories",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "categories"]
+								},
+								"description": "Get all categories with subcategories and field definitions. Public endpoint."
+							}
+						},
+						{
+							"name": "Get Cities",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/cities?search=Mumbai&metro_only=false",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "cities"],
+									"query": [
+										{
+											"key": "search",
+											"value": "Mumbai",
+											"description": "Optional search filter"
+										},
+										{
+											"key": "metro_only",
+											"value": "false",
+											"description": "Filter to metro cities only"
+										}
+									]
+								},
+								"description": "Search cities. Public endpoint."
+							}
+						},
+						{
+							"name": "Get Marketplace Sources",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/marketplace-sources?category_id=1",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "marketplace-sources"],
+									"query": [
+										{
+											"key": "category_id",
+											"value": "1",
+											"description": "Optional category filter"
+										}
+									]
+								},
+								"description": "Get marketplace sources, optionally filtered by category. Public endpoint."
+							}
+						}
+					]
+				},
+				{
+					"name": "Wishlists",
+					"description": "CRUD operations for wishlists.",
+					"item": [
+						{
+							"name": "Create Wishlist",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"Honda City 2020\",\n    \"display_title\": \"Looking for Honda City 2020\",\n    \"description\": \"Single owner, well maintained, under 50K km\",\n    \"category_id\": 1,\n    \"subcategory_id\": 1,\n    \"filters_json\": {\n        \"min_price\": 500000,\n        \"max_price\": 900000,\n        \"location\": \"Mumbai\"\n    },\n    \"notes\": \"Prefer petrol variant\",\n    \"status\": \"active\",\n    \"priority\": \"high\",\n    \"field_values\": [\n        {\"field_definition_id\": 1, \"value\": \"Honda\"},\n        {\"field_definition_id\": 2, \"value\": \"City\"}\n    ],\n    \"preferred_marketplace_ids\": [1, 2]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists"]
+								},
+								"description": "Create a new wishlist. Triggers async matching via Celery and publishes Kafka event."
+							}
+						},
+						{
+							"name": "Get All Wishlists",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists?user_only=true&skip=0&limit=100",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists"],
+									"query": [
+										{
+											"key": "user_only",
+											"value": "true",
+											"description": "If true, returns only the authenticated user's wishlists"
+										},
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Get wishlists. Set user_only=true to fetch only the current user's wishlists."
+							}
+						},
+						{
+							"name": "Get Wishlist by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}"]
+								},
+								"description": "Get a single wishlist by ID."
+							}
+						},
+						{
+							"name": "Update Wishlist",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"Honda City 2021\",\n    \"display_title\": \"Updated: Looking for Honda City 2021\",\n    \"description\": \"Single owner, petrol, under 40K km\",\n    \"category_id\": 1,\n    \"subcategory_id\": 1,\n    \"status\": \"active\",\n    \"priority\": \"high\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}"]
+								},
+								"description": "Update an existing wishlist. Only the wishlist owner can update."
+							}
+						},
+						{
+							"name": "Delete Wishlist",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}"]
+								},
+								"description": "Delete a wishlist. Only the wishlist owner can delete."
+							}
+						}
+					]
+				},
+				{
+					"name": "Matches",
+					"description": "View matches for a wishlist.",
+					"item": [
+						{
+							"name": "Get Wishlist Matches",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}/matches?skip=0&limit=50",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}", "matches"],
+									"query": [
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "50"
+										}
+									]
+								},
+								"description": "Get matched listings for a wishlist. Dismissed matches are excluded. Each match includes is_favourite flag."
+							}
+						}
+					]
+				},
+				{
+					"name": "Favourites",
+					"description": "Add and remove favourites on matches.",
+					"item": [
+						{
+							"name": "Add Favourite",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}/matches/{{match_id}}/favourite",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}", "matches", "{{match_id}}", "favourite"]
+								},
+								"description": "Mark a match as favourite."
+							}
+						},
+						{
+							"name": "Remove Favourite",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}/matches/{{match_id}}/favourite",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}", "matches", "{{match_id}}", "favourite"]
+								},
+								"description": "Remove a match from favourites."
+							}
+						}
+					]
+				},
+				{
+					"name": "Dismiss",
+					"description": "Dismiss unwanted matches.",
+					"item": [
+						{
+							"name": "Dismiss Match",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"wishlist_id\": {{wishlist_id}},\n    \"reason\": \"Price too high\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/wishlist/wishlists/{{wishlist_id}}/matches/{{match_id}}/dismiss",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "wishlists", "{{wishlist_id}}", "matches", "{{match_id}}", "dismiss"]
+								},
+								"description": "Dismiss a match so it no longer appears in results. Optionally provide a reason."
+							}
+						}
+					]
+				},
+				{
+					"name": "Saved Listings",
+					"description": "Manually saved listing URLs by the user.",
+					"item": [
+						{
+							"name": "Get Saved Listings",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/saved-listings?skip=0&limit=50",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "saved-listings"],
+									"query": [
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "50"
+										}
+									]
+								},
+								"description": "Get the current user's saved listings."
+							}
+						},
+						{
+							"name": "Save a Listing",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"Honda City V CVT 2020\",\n    \"url\": \"https://www.olx.in/item/honda-city-v-cvt-2020-iid-123456\",\n    \"price\": \"8.5L\",\n    \"price_numeric\": 850000,\n    \"location\": \"Mumbai, Maharashtra\",\n    \"category\": \"Automobile\",\n    \"image_url\": \"https://example.com/image.jpg\",\n    \"source\": \"OLX\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/wishlist/saved-listings",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "saved-listings"]
+								},
+								"description": "Manually save a listing URL."
+							}
+						},
+						{
+							"name": "Delete Saved Listing",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/wishlist/saved-listings/{{listing_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "saved-listings", "{{listing_id}}"]
+								},
+								"description": "Delete a saved listing."
+							}
+						}
+					]
+				},
+				{
+					"name": "Feedback",
+					"description": "User feedback submission.",
+					"item": [
+						{
+							"name": "Submit Feedback",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"rating\": 5,\n    \"message\": \"Great platform! Found exactly what I was looking for.\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/wishlist/feedback",
+									"host": ["{{base_url}}"],
+									"path": ["wishlist", "feedback"]
+								},
+								"description": "Submit user feedback. Rating must be 1-5."
+							}
+						}
+					]
+				},
+				{
+					"name": "Wishlist Health",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/wishlist/health",
+							"host": ["{{base_url}}"],
+							"path": ["wishlist", "health"]
+						},
+						"description": "Wishlist service health check. Public endpoint."
+					}
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"description": "Notification management and settings.\nGateway prefix: /notification/",
+			"item": [
+				{
+					"name": "Notifications CRUD",
+					"description": "Read, mark-read, and delete notifications.",
+					"item": [
+						{
+							"name": "Get Notifications",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/notification/notifications?skip=0&limit=50",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notifications"],
+									"query": [
+										{
+											"key": "skip",
+											"value": "0"
+										},
+										{
+											"key": "limit",
+											"value": "50"
+										},
+										{
+											"key": "type",
+											"value": "match",
+											"description": "Optional filter: match, price_drop, system, etc.",
+											"disabled": true
+										},
+										{
+											"key": "is_read",
+											"value": "false",
+											"description": "Optional filter for read/unread",
+											"disabled": true
+										}
+									]
+								},
+								"description": "Get the current user's notifications with unread count."
+							}
+						},
+						{
+							"name": "Mark Notification as Read",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/notification/notifications/{{notification_id}}/read",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notifications", "{{notification_id}}", "read"]
+								},
+								"description": "Mark a single notification as read."
+							}
+						},
+						{
+							"name": "Mark All as Read",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/notification/notifications/read-all",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notifications", "read-all"]
+								},
+								"description": "Mark all notifications as read for the current user."
+							}
+						},
+						{
+							"name": "Delete Notification",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/notification/notifications/{{notification_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notifications", "{{notification_id}}"]
+								},
+								"description": "Soft-delete a single notification."
+							}
+						},
+						{
+							"name": "Clear All Notifications",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/notification/notifications",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notifications"]
+								},
+								"description": "Clear (soft-delete) all notifications for the current user."
+							}
+						}
+					]
+				},
+				{
+					"name": "Notification Settings",
+					"description": "Email and push notification preferences.",
+					"item": [
+						{
+							"name": "Get Notification Settings",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/notification/notification-settings",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notification-settings"]
+								},
+								"description": "Get the current user's notification preferences."
+							}
+						},
+						{
+							"name": "Update Notification Settings",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email_matches\": true,\n    \"email_price_drops\": true,\n    \"email_newsletter\": false,\n    \"push_matches\": true,\n    \"push_messages\": true,\n    \"push_promotions\": false\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/notification/notification-settings",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notification-settings"]
+								},
+								"description": "Update notification preferences. Only send fields that need changing."
+							}
+						}
+					]
+				},
+				{
+					"name": "Internal Notify",
+					"description": "Internal endpoint used by workers/matching engine.",
+					"item": [
+						{
+							"name": "Send Notification (Internal)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"cluster_id\": 1,\n    \"message\": \"New match found for your wishlist!\",\n    \"recipients\": [\"user@example.com\"]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/notification/notify",
+									"host": ["{{base_url}}"],
+									"path": ["notification", "notify"]
+								},
+								"description": "Internal endpoint called by matching workers to push notifications. Not intended for frontend use."
+							}
+						}
+					]
+				},
+				{
+					"name": "Notification Health",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/notification/health",
+							"host": ["{{base_url}}"],
+							"path": ["notification", "health"]
+						},
+						"description": "Notification service health check. Public endpoint."
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"description": "Admin review dashboard and match moderation.\nGateway prefix: /admin/",
+			"item": [
+				{
+					"name": "Review Match",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"match_id\": 1,\n    \"action\": \"approve\",\n    \"reason\": null\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/review",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "review"]
+						},
+						"description": "Approve or reject a match. Action must be 'approve' or 'reject'."
+					}
+				},
+				{
+					"name": "Pending Matches Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/admin/dashboard/pending",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "dashboard", "pending"]
+						},
+						"description": "HTML dashboard listing all matches with admin_review status."
+					}
+				}
+			]
+		}
+	]
+}
