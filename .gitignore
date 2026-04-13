@@ -1,5 +1,11 @@
 ### AL ###
 #Template for AL projects for Dynamics 365 Business Central
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
 #launch.json folder
 .vscode/
 #Cache folder
