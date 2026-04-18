@@ -36,7 +36,7 @@ docker-compose up --build
 Access:
 - **Frontend**: http://localhost (via Nginx)
 - **API Gateway**: http://localhost:8000
-- **Monitoring**: http://localhost:9090 (Prometheus), http://localhost:3001 (Grafana admin/admin)
+- **Monitoring**: http://localhost:9090 (Prometheus), http://localhost:3001 (Grafana admin/admin), http://localhost:3100 (Loki)
 
 ### Option 3: Frontend Only
 
@@ -109,7 +109,8 @@ Required variables:
 DB_NAME=wishi
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
-DB_HOST=localhost
+DB_HOST=localhost  # local run
+DB_PORT=5432
 
 # JWT
 SECRET_KEY=your-secret-key-change-in-prod
@@ -117,7 +118,20 @@ SECRET_KEY=your-secret-key-change-in-prod
 # Google OAuth
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Gateway service routing (local defaults)
+AUTH_SERVICE_URL=http://localhost:8001
+WISHLIST_SERVICE_URL=http://localhost:8002
+SELLER_SERVICE_URL=http://localhost:8003
+MATCHING_SERVICE_URL=http://localhost:8004
+CLUSTER_SERVICE_URL=http://localhost:8005
+MATCH_ENGINE_SERVICE_URL=http://localhost:8006
+VALIDATION_SERVICE_URL=http://localhost:8007
+NOTIFICATION_SERVICE_URL=http://localhost:8008
+ADMIN_SERVICE_URL=http://localhost:8009
 ```
+
+Tip: for Docker Compose use `DB_HOST=postgres`.
 
 ### 3. Database Setup
 
@@ -204,8 +218,32 @@ cd extension
 
 - **Prometheus**: http://localhost:9090
 - **Grafana**: http://localhost:3001 (admin/admin)
+- **Loki**: http://localhost:3100
 - **API Metrics**: http://localhost:8000/metrics
 - **Health Checks**: http://localhost:8000/health
+
+### Logging
+
+- Backend services emit structured JSON logs to stdout by default.
+- Promtail scrapes backend container logs and pushes them to Loki.
+- Grafana is pre-provisioned with both Prometheus and Loki datasources.
+- Each log line includes `service`, `trace_id`, `logger`, and exception details when present.
+
+Useful queries in Grafana Explore:
+
+```logql
+{service="gateway"}
+```
+
+```logql
+{trace_id="your-trace-id"}
+```
+
+Optional local file fallback for a service:
+
+```bash
+ENABLE_FILE_LOGS=true LOG_FORMAT=text uvicorn backend-fastapi.gateway.app.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
 ## 🔒 Authentication
 
@@ -263,6 +301,15 @@ alembic upgrade head
 docker-compose build --no-cache
 docker-compose up -d gateway
 docker-compose logs -f gateway
+
+# Start all backend services locally (opens separate PowerShell windows)
+powershell -ExecutionPolicy Bypass -File scripts/start-backend-local.ps1
+
+# Start all backend services except worker
+powershell -ExecutionPolicy Bypass -File scripts/start-backend-local.ps1 -IncludeWorker:$false
+
+# Stop all backend service terminals started by the local launcher
+powershell -ExecutionPolicy Bypass -File scripts/stop-backend-local.ps1
 ```
 
 ## 🚀 Deployment

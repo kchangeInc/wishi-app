@@ -37,3 +37,8 @@ def search(req: SearchRequest):
     ]
     # In a real engine, call source scrapers; here we return candidate templates for validation pipeline
     return {"queries": query_candidates}
+
+
+@app.get("/health")
+def health():
+    return {"status": "match-engine ok"}

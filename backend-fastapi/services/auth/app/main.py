@@ -4,28 +4,29 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
 import jwt as pyjwt
-import os
 import secrets
 import logging
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 from shared.auth import create_token, verify_token
+from shared.config.settings import get_settings
 from shared.db.session import get_db_session, SessionLocal
 from shared.repository.user import UserRepository
 from shared.log_config import setup_logging, add_logging_middleware
 
 setup_logging("auth")
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 app = FastAPI()
 add_logging_middleware(app)
 
 # Settings from env
-SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_TO_ENV")
+SECRET_KEY = settings.auth.secret_key
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.auth.access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.auth.refresh_token_expire_days
+GOOGLE_CLIENT_ID = settings.auth.google_client_id
 
 security = HTTPBearer()
 
@@ -230,7 +231,7 @@ def get_me(current_user=Depends(get_current_user)):
 
 @app.put("/me")
 def update_me(body: ProfileUpdate, current_user=Depends(get_current_user)):
-    updates = body.dict(exclude_unset=True)
+    updates = body.model_dump(exclude_unset=True)
     if not updates:
         return _user_to_dict(current_user)
     db = SessionLocal()

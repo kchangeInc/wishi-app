@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 add_logging_middleware(app)
 
-conn = get_db_connection()
+
+def _get_connection():
+    """Get a fresh DB connection."""
+    return get_db_connection()
 
 class ClusterRequest(BaseModel):
     title: str
@@ -31,7 +34,6 @@ class ClusterResponse(BaseModel):
 
 
 def _ensure_table():
-    # Tables are now managed by Alembic migrations
     pass
 
 
@@ -49,37 +51,49 @@ def normalize_filters(req: ClusterRequest):
 def upsert_cluster(payload: ClusterRequest, request: Request):
     user = get_optional_user(request)
     normalized = normalize_filters(payload)
+    conn = _get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, buyer_count, created_at FROM clusters WHERE normalized_filters = %s", (normalized,))
+            row = cur.fetchone()
+            if row:
+                cluster_id, buyer_count, created_at = row
+                buyer_count += 1
+                cur.execute(
+                    "UPDATE clusters SET buyer_count = %s, updated_at = NOW(), updated_by = %s WHERE id = %s",
+                    (buyer_count, user["user_id"] if user else None, cluster_id)
+                )
+                conn.commit()
+                logger.info(f"Cluster updated: id={cluster_id} buyer_count={buyer_count}")
+                return ClusterResponse(id=cluster_id, normalized_filters=normalized, buyer_count=buyer_count, created_at=created_at)
 
-    with conn.cursor() as cur:
-        cur.execute("SELECT id, buyer_count, created_at FROM clusters WHERE normalized_filters = %s", (normalized,))
-        row = cur.fetchone()
-        if row:
-            cluster_id, buyer_count, created_at = row
-            buyer_count += 1
             cur.execute(
-                "UPDATE clusters SET buyer_count = %s, updated_at = NOW(), updated_by = %s WHERE id = %s",
-                (buyer_count, user["user_id"] if user else None, cluster_id)
+                "INSERT INTO clusters(normalized_filters, buyer_count, created_by, updated_by, created_at, updated_at) VALUES (%s, 1, %s, %s, NOW(), NOW()) RETURNING id, created_at",
+                (normalized, user["user_id"] if user else None, user["user_id"] if user else None)
             )
+            cluster_id, created_at = cur.fetchone()
             conn.commit()
-            logger.info(f"Cluster updated: id={cluster_id} buyer_count={buyer_count}")
-            return ClusterResponse(id=cluster_id, normalized_filters=normalized, buyer_count=buyer_count, created_at=created_at)
-
-        cur.execute(
-            "INSERT INTO clusters(normalized_filters, buyer_count, created_by, updated_by, created_at, updated_at) VALUES (%s, 1, %s, %s, NOW(), NOW()) RETURNING id, created_at",
-            (normalized, user["user_id"] if user else None, user["user_id"] if user else None)
-        )
-        cluster_id, created_at = cur.fetchone()
-        conn.commit()
-        logger.info(f"Cluster created: id={cluster_id} filters={normalized}")
+            logger.info(f"Cluster created: id={cluster_id} filters={normalized}")
+    finally:
+        conn.close()
 
     return ClusterResponse(id=cluster_id, normalized_filters=normalized, buyer_count=1, created_at=created_at)
 
 
 @app.get("/clusters/{cluster_id}", response_model=ClusterResponse)
 def get_cluster(cluster_id: int):
-    with conn.cursor() as cur:
-        cur.execute("SELECT id, normalized_filters, buyer_count, created_at FROM clusters WHERE id = %s", (cluster_id,))
-        row = cur.fetchone()
+    conn = _get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, normalized_filters, buyer_count, created_at FROM clusters WHERE id = %s", (cluster_id,))
+            row = cur.fetchone()
+    finally:
+        conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Cluster not found")
     return ClusterResponse(id=row[0], normalized_filters=row[1], buyer_count=row[2], created_at=row[3])
+
+
+@app.get("/health")
+def health():
+    return {"status": "cluster ok"}

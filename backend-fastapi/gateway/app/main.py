@@ -5,9 +5,9 @@ from fastapi.responses import JSONResponse
 import httpx
 import logging
 from fastapi.middleware.cors import CORSMiddleware
-import os
 from shared.auth import verify_token
-from shared.log_config import setup_logging, add_logging_middleware
+from shared.config.settings import get_settings
+from shared.log_config import add_logging_middleware, build_trace_headers, setup_logging
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -20,6 +20,7 @@ REQUEST_LATENCY = Histogram('gateway_request_duration_seconds', 'Request duratio
 
 setup_logging("gateway")
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -39,15 +40,15 @@ app.add_middleware(
 )
 
 ROUTES = {
-    "auth": os.getenv("AUTH_SERVICE_URL", "http://localhost:8001"),
-    "wishlist": os.getenv("WISHLIST_SERVICE_URL", "http://localhost:8002"),
-    "seller": os.getenv("SELLER_SERVICE_URL", "http://localhost:8003"),
-    "matching": os.getenv("MATCHING_SERVICE_URL", "http://localhost:8004"),
-    "cluster": os.getenv("CLUSTER_SERVICE_URL", "http://localhost:8005"),
-    "match": os.getenv("MATCH_ENGINE_SERVICE_URL", "http://localhost:8006"),
-    "validation": os.getenv("VALIDATION_SERVICE_URL", "http://localhost:8007"),
-    "notification": os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8008"),
-    "admin": os.getenv("ADMIN_SERVICE_URL", "http://localhost:8009"),
+    "auth": settings.service_urls.auth,
+    "wishlist": settings.service_urls.wishlist,
+    "seller": settings.service_urls.seller,
+    "matching": settings.service_urls.matching,
+    "cluster": settings.service_urls.cluster,
+    "match": settings.service_urls.match,
+    "validation": settings.service_urls.validation,
+    "notification": settings.service_urls.notification,
+    "admin": settings.service_urls.admin,
 }
 
 # Public endpoints that don't require authentication
@@ -100,7 +101,7 @@ async def proxy(service: str, path: str, request: Request):
 
     url = f"{ROUTES[service]}/{path}"
 
-    headers = dict(request.headers)
+    headers = build_trace_headers(request.headers)
     if user_info:
         headers["X-User-ID"] = str(user_info["user_id"])
         headers["X-User-Email"] = user_info["email"]
@@ -116,11 +117,15 @@ async def proxy(service: str, path: str, request: Request):
                 params=dict(request.query_params),
             )
     except httpx.RequestError as e:
-        logger.error(f"Downstream service error: {service}/{path} - {e}")
+        logger.error(f"Downstream service error: {service}/{path} - {e}", exc_info=True)
         raise HTTPException(status_code=502, detail=f"Service '{service}' unavailable")
 
     REQUEST_COUNT.labels(method=request.method, endpoint=f"{service}/{path}", status=str(response.status_code)).inc()
-    return JSONResponse(status_code=response.status_code, content=response.json())
+    try:
+        content = response.json()
+    except Exception:
+        content = {"detail": response.text}
+    return JSONResponse(status_code=response.status_code, content=content)
 
 
 @app.get("/health")

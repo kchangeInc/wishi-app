@@ -11,3 +11,8 @@ add_logging_middleware(app)
 @app.get("/insights")
 def insights():
     return {"top_category": "mobiles", "demand": 100}
+
+
+@app.get("/health")
+def health():
+    return {"status": "seller ok"}

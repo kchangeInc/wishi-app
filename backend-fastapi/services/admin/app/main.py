@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 add_logging_middleware(app)
 
-conn = get_db_connection()
+
+def _get_connection():
+    """Get a fresh DB connection."""
+    return get_db_connection()
 
 class MatchReviewRequest(BaseModel):
     match_id: int
@@ -25,7 +28,6 @@ class MatchReviewResponse(BaseModel):
 
 
 def _ensure_table():
-    # Tables are now managed by Alembic migrations
     pass
 
 
@@ -42,10 +44,14 @@ def review(request: MatchReviewRequest):
     logger.info(f"Match review: match_id={request.match_id} action={request.action}")
     new_status = "published" if request.action == "approve" else "rejected"
 
-    with conn.cursor() as cur:
-        cur.execute("UPDATE matches SET status=%s WHERE id=%s RETURNING id", (new_status, request.match_id))
-        row = cur.fetchone()
-        conn.commit()
+    conn = _get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE matches SET status=%s WHERE id=%s RETURNING id", (new_status, request.match_id))
+            row = cur.fetchone()
+            conn.commit()
+    finally:
+        conn.close()
 
     if not row:
         logger.warning(f"Match not found for review: match_id={request.match_id}")
@@ -56,9 +62,13 @@ def review(request: MatchReviewRequest):
 
 @app.get("/dashboard/pending")
 def pending_dashboard():
-    with conn.cursor() as cur:
-        cur.execute("SELECT id, cluster_id, url, source, score, status, created_at FROM matches WHERE status = 'admin_review' ORDER BY created_at DESC")
-        rows = cur.fetchall()
+    conn = _get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, cluster_id, url, source, score, status, created_at FROM matches WHERE status = 'admin_review' ORDER BY created_at DESC")
+            rows = cur.fetchall()
+    finally:
+        conn.close()
 
     items = "".join([
         f"<tr><td>{r[0]}</td><td>{r[1]}</td><td><a href='{r[2]}' target='_blank'>{r[2]}</a></td><td>{r[3]}</td><td>{r[4]}</td><td>{r[5]}</td><td>{r[6]}</td></tr>"
@@ -75,4 +85,9 @@ def pending_dashboard():
     </body></html>
     """
     return html
+
+
+@app.get("/health")
+def health():
+    return {"status": "admin ok"}
 

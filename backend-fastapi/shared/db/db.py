@@ -1,8 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import os
+from shared.db.config import build_database_url
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{os.getenv('DB_USER', 'user')}:{os.getenv('DB_PASSWORD', 'password')}@{os.getenv('DB_HOST', 'postgres')}:5432/{os.getenv('DB_NAME', 'wishi')}")
+DATABASE_URL = build_database_url()
 
 engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=50)
 SessionLocal = sessionmaker(bind=engine)

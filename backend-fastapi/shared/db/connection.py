@@ -1,19 +1,21 @@
 # shared/db/connection.py
 import psycopg2
-import os
 import logging
+from shared.db.config import get_db_settings
 
 logger = logging.getLogger(__name__)
 
 def get_db_connection():
     """Get a database connection using environment variables"""
-    host = os.getenv("DB_HOST", "postgres")
+    settings = get_db_settings()
+    host = settings["host"]
     try:
         conn = psycopg2.connect(
-            dbname=os.getenv("DB_NAME", "wishi"),
-            user=os.getenv("DB_USER", "user"),
-            password=os.getenv("DB_PASSWORD", "password"),
-            host=host
+            dbname=settings["name"],
+            user=settings["user"],
+            password=settings["password"],
+            host=host,
+            port=settings["port"],
         )
         logger.info(f"Database connection established: host={host}")
         return conn

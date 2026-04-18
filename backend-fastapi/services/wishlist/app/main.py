@@ -4,8 +4,8 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel
 import json
-import os
 import logging
+from shared.config.settings import get_settings
 from shared.db.session import get_db_session
 from shared.service.wishlist_service import WishlistService
 from shared.repository.category import CategoryRepository
@@ -18,6 +18,7 @@ from shared.log_config import setup_logging, add_logging_middleware
 
 setup_logging("wishlist")
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 app = FastAPI()
 add_logging_middleware(app)
@@ -33,12 +34,12 @@ def _get_producer():
     try:
         from kafka import KafkaProducer
         _producer = KafkaProducer(
-            bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
+            bootstrap_servers=settings.messaging.kafka_bootstrap_servers,
             retries=5,
             value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         )
     except Exception as e:
-        logger.warning(f"Kafka unavailable: {e}")
+        logger.warning(f"Kafka unavailable: {e}", exc_info=True)
     return _producer
 
 def _get_celery():
@@ -47,9 +48,9 @@ def _get_celery():
         return _celery
     try:
         from celery import Celery
-        _celery = Celery(broker=os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"))
+        _celery = Celery(broker=settings.messaging.celery_broker_url)
     except Exception as e:
-        logger.warning(f"Celery unavailable: {e}")
+        logger.warning(f"Celery unavailable: {e}", exc_info=True)
     return _celery
 
 def _publish_event(topic, data):
@@ -58,7 +59,7 @@ def _publish_event(topic, data):
         try:
             p.send(topic, data)
         except Exception as e:
-            logger.warning(f"Kafka send failed: {e}")
+            logger.warning(f"Kafka send failed: {e}", exc_info=True)
 
 def _dispatch_task(name, args):
     c = _get_celery()
@@ -66,7 +67,7 @@ def _dispatch_task(name, args):
         try:
             c.send_task(name, args=args)
         except Exception as e:
-            logger.warning(f"Celery dispatch failed: {e}")
+            logger.warning(f"Celery dispatch failed: {e}", exc_info=True)
 
 # ---- Pydantic models ----
 
@@ -328,7 +329,7 @@ def get_saved_listings(request: Request, skip: int = 0, limit: int = 50, db=Depe
 def save_listing(body: SavedListingCreate, request: Request, db=Depends(get_db_session)):
     user = get_current_user(request)
     repo = SavedListingRepository(db)
-    listing = repo.save_listing(user["user_id"], **body.dict())
+    listing = repo.save_listing(user["user_id"], **body.model_dump())
     return {"id": listing.id, "status": "saved"}
 
 @app.delete("/saved-listings/{listing_id}")

@@ -1,5 +1,17 @@
 version: '3.9'
 
+x-backend-logging-env: &backend-logging-env
+  PYTHONUNBUFFERED: "1"
+  LOG_LEVEL: INFO
+  LOG_FORMAT: json
+  ENABLE_STDOUT_LOGS: "true"
+  ENABLE_FILE_LOGS: "false"
+  ENABLE_COMMON_TRACELOG: "false"
+
+x-structured-logging-labels: &structured-logging-labels
+  wishi_logging: structured
+  wishi_log_format: json
+
 services:
   nginx:
     image: nginx:alpine
@@ -34,7 +46,9 @@ services:
     ports:
       - '8000:8000'
     environment:
-      - PYTHONUNBUFFERED=1
+      <<: *backend-logging-env
+    labels:
+      <<: *structured-logging-labels
     depends_on:
       - auth-service
       - wishlist-service
@@ -105,99 +119,161 @@ services:
       context: ./backend-fastapi
       dockerfile: services/auth/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-prod}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-prod}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   wishlist-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/wishlist/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   matching-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/matching/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
 
   seller-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/seller/Dockerfile
+    environment:
+      <<: *backend-logging-env
+    labels:
+      <<: *structured-logging-labels
 
   cluster-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/cluster/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   match-engine-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/match-engine/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   validation-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/validation/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   notification-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/notification/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   admin-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/admin/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   worker-service:
     build:
       context: ./backend-fastapi
       dockerfile: services/worker/Dockerfile
     environment:
-      - DB_NAME=${DB_NAME:-wishi}
-      - DB_USER=${DB_USER:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_HOST=postgres
+      <<: *backend-logging-env
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
+    labels:
+      <<: *structured-logging-labels
     command: ["celery", "-A", "app.tasks", "worker", "--beat", "--loglevel=info"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   prometheus:
     image: prom/prometheus
@@ -208,17 +284,41 @@ services:
     depends_on:
       - backend
 
+  loki:
+    image: grafana/loki:2.9.8
+    ports:
+      - '3100:3100'
+    command: ["-config.file=/etc/loki/local-config.yml"]
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/local-config.yml:ro
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_positions:/tmp
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana
     ports:
       - '3001:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+      - loki
 
 volumes:
+  loki_data:
   postgres_data:
+  promtail_positions:
 
 networks:
   default:

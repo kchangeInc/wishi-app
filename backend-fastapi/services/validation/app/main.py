@@ -27,16 +27,36 @@ class ValidationResult(BaseModel):
 
 
 def check_url(url: str):
+    """Fetch URL, validate it, and return (ok, reason, response_text)."""
     try:
         with httpx.Client(timeout=10.0, follow_redirects=True) as client:
             resp = client.get(url)
             if resp.status_code != 200:
-                return False, "non-200"
+                return False, "non-200", ""
             if len(resp.history) > 10:
-                return False, "redirect_loop"
-            return True, "ok"
+                return False, "redirect_loop", ""
+            return True, "ok", resp.text
     except Exception as e:
-        return False, str(e)
+        logger.warning(f"URL probe failed: url={url} error={e}", exc_info=True)
+        return False, str(e), ""
+
+
+def extract_metadata(body: str) -> dict:
+    """Extract title and description from HTML body."""
+    body_lower = body.lower()
+    title = ""
+    description = ""
+    if "<title>" in body_lower:
+        start = body_lower.find("<title>") + 7
+        end = body_lower.find("</title>", start)
+        title = body_lower[start:end] if end > start else ""
+    if "<meta name=\"description\"" in body_lower:
+        desc_start = body_lower.find("<meta name=\"description\"")
+        desc_content = body_lower[desc_start:desc_start+300]
+        if "content=\"" in desc_content:
+            c = desc_content.split("content=\"")[1]
+            description = c.split("\"")[0]
+    return {"title": title, "description": description}
 
 
 def compute_score(req: ValidationRequest, metadata: dict):
@@ -86,31 +106,18 @@ def compute_score(req: ValidationRequest, metadata: dict):
 
 @app.post("/validate", response_model=ValidationResult)
 def validate(req: ValidationRequest):
-    ok, reason = check_url(req.url)
+    ok, reason, body = check_url(req.url)
     if not ok:
         logger.warning(f"URL validation rejected: url={req.url} reason={reason}")
         raise HTTPException(status_code=400, detail=f"URL check failed: {reason}")
 
-    with httpx.Client(timeout=10.0) as client:
-        resp = client.get(req.url)
-        title = ""
-        description = ""
-        body = resp.text.lower()
-        # naive: use substring hints
-        if "<title>" in body:
-            start = body.find("<title>") + 7
-            end = body.find("</title>", start)
-            title = body[start:end] if end > start else ""
-        # naive description
-        if "<meta name=\"description\"" in body:
-            desc_start = body.find("<meta name=\"description\"")
-            desc_content = body[desc_start:desc_start+300]
-            if "content=\"" in desc_content:
-                c = desc_content.split("content=\"")[1]
-                description = c.split("\"")[0]
-
-    metadata = {"title": title, "description": description}
+    metadata = extract_metadata(body)
     score, status, details = compute_score(req, metadata)
     logger.info(f"Validated: url={req.url} score={score} status={status}")
 
     return ValidationResult(url=req.url, score=score, status=status, details=details)
+
+
+@app.get("/health")
+def health():
+    return {"status": "validation ok"}

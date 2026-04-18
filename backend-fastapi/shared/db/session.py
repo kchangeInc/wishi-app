@@ -5,14 +5,12 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 import os
 import logging
+from shared.db.config import build_database_url
 
 logger = logging.getLogger(__name__)
 
 # Build database URL from environment variables
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    f"postgresql://{os.getenv('DB_USER', 'postgres')}:{os.getenv('DB_PASSWORD', 'admin')}@{os.getenv('DB_HOST', 'localhost')}:5432/{os.getenv('DB_NAME', 'wishi')}"
-)
+DATABASE_URL = build_database_url()
 
 # Create engine with connection pooling
 engine = create_engine(

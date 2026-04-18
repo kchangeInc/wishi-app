@@ -8,7 +8,7 @@ import psycopg2
 from fastapi import FastAPI, BackgroundTasks
 from kafka import KafkaConsumer
 from shared.db.connection import get_db_connection
-from shared.log_config import setup_logging, add_logging_middleware
+from shared.log_config import add_logging_middleware, build_trace_headers, setup_logging
 
 setup_logging("matching")
 logger = logging.getLogger(__name__)
@@ -16,19 +16,21 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 add_logging_middleware(app)
 
-conn = get_db_connection()
-
 PLATFORMS = ["OLX", "Spinny", "Cars24"]
 
 
-def _ensure_tables():
-    # Tables are now managed by Alembic migrations
-    pass
+def _get_connection():
+    """Get a fresh DB connection, reconnecting if needed."""
+    try:
+        conn = get_db_connection()
+        return conn
+    except Exception as e:
+        logger.error(f"Failed to get DB connection: {e}", exc_info=True)
+        raise
 
 
 @app.on_event("startup")
 def startup():
-    _ensure_tables()
     thread = threading.Thread(target=kafka_wishlist_consumer, daemon=True)
     thread.start()
 
@@ -56,7 +58,10 @@ def process_wishlist(wishlist_id: int):
     # 1) Fetch wishlist data from wishlist service
     try:
         with httpx.Client(timeout=10.0) as client:
-            wish_resp = client.get(f"http://wishlist-service:8002/wishlists/{wishlist_id}")
+            wish_resp = client.get(
+                f"http://wishlist-service:8002/wishlists/{wishlist_id}",
+                headers=build_trace_headers(),
+            )
             wish_resp.raise_for_status()
             wish = wish_resp.json()
     except Exception as e:
@@ -82,7 +87,11 @@ def process_wishlist(wishlist_id: int):
     }
     try:
         with httpx.Client(timeout=10.0) as client:
-            cluster_resp = client.post("http://cluster-service:8005/clusters", json=cluster_payload)
+            cluster_resp = client.post(
+                "http://cluster-service:8005/clusters",
+                json=cluster_payload,
+                headers=build_trace_headers(),
+            )
             cluster_resp.raise_for_status()
             cluster = cluster_resp.json()
             cluster_id = cluster["id"]
@@ -98,7 +107,7 @@ def process_wishlist(wishlist_id: int):
                 "year": year,
                 "city": location,
                 "price": price
-            })
+            }, headers=build_trace_headers())
             query_resp.raise_for_status()
             queries = query_resp.json().get("queries", [])
     except Exception as e:
@@ -160,36 +169,55 @@ def validate_candidate(candidate: dict, product, location, price):
                 "location": location,
                 "price": float(price) if price else 0.0
             }
-            resp = client.post("http://validation-service:8007/validate", json=payload)
+            resp = client.post(
+                "http://validation-service:8007/validate",
+                json=payload,
+                headers=build_trace_headers(),
+            )
             if resp.status_code == 200:
                 return resp.json()
     except Exception as e:
-        logger.warning(f"Validation call failed for {candidate['url']}: {e}")
+        logger.warning(f"Validation call failed for {candidate['url']}: {e}", exc_info=True)
 
     return {"score": 0, "status": "reject", "details": {"error": "validation_failed"}}
 
 
 def store_match(cluster_id, url, source, score, status):
-    with conn.cursor() as cur:
-        cur.execute(
-            "INSERT INTO matches(cluster_id, url, source, score, status, last_validated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
-            (cluster_id, url, source, score, status)
-        )
-        conn.commit()
+    conn = _get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO matches(cluster_id, url, source, score, status, last_validated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
+                (cluster_id, url, source, score, status)
+            )
+            conn.commit()
+    finally:
+        conn.close()
 
 
 def send_notification(cluster_id, message, recipients):
     try:
         with httpx.Client(timeout=10.0) as client:
-            client.post("http://notification-service:8008/notify", json={
-                "cluster_id": cluster_id,
-                "message": message,
-                "recipients": recipients or []
-            })
+            client.post(
+                "http://notification-service:8008/notify",
+                json={
+                    "cluster_id": cluster_id,
+                    "message": message,
+                    "recipients": recipients or []
+                },
+                headers=build_trace_headers(),
+            )
     except Exception as e:
-        logger.error(f"Notification send failed for cluster {cluster_id}: {e}")
+        logger.error(f"Notification send failed for cluster {cluster_id}: {e}", exc_info=True)
 
 
 @app.get("/health")
 def health():
     return {"status": "matching ok"}
+
+
+@app.post("/process_wishlist/{wishlist_id}")
+def trigger_process_wishlist(wishlist_id: int, background_tasks: BackgroundTasks):
+    """Endpoint called by the worker service to trigger wishlist processing."""
+    background_tasks.add_task(process_wishlist, wishlist_id)
+    return {"status": "processing", "wishlist_id": wishlist_id}
