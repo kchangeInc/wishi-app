@@ -1,11 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Search, User, Star, Home } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ChevronLeft, ChevronRight, Search, User, Star, Home, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Masonry from 'react-masonry-css'
 import { useAuth } from '../contexts/AuthContext'
+import { api } from '../lib/api'
+
+const bannerIdeas = [
+  { emoji: '🚗', text: 'Honda City under ₹8L', color: 'bg-blue-50 border-blue-100 text-blue-600' },
+  { emoji: '🏠', text: '2BHK for Rent in Mumbai', color: 'bg-emerald-50 border-emerald-100 text-emerald-600' },
+  { emoji: '📱', text: 'iPhone 15 Pro in Budget', color: 'bg-violet-50 border-violet-100 text-violet-600' },
+  { emoji: '🛵', text: 'Scooter under ₹70K', color: 'bg-orange-50 border-orange-100 text-orange-600' },
+  { emoji: '💻', text: 'MacBook Pro M3 under ₹2L', color: 'bg-pink-50 border-pink-100 text-pink-600' },
+  { emoji: '🏡', text: '3BHK in Pune under ₹90L', color: 'bg-teal-50 border-teal-100 text-teal-600' },
+  { emoji: '🏍️', text: 'Royal Enfield Classic 350', color: 'bg-amber-50 border-amber-100 text-amber-600' },
+  { emoji: '📺', text: 'Samsung 65" QLED TV', color: 'bg-cyan-50 border-cyan-100 text-cyan-600' },
+]
 
 const featureCards = [
   {
@@ -117,6 +129,57 @@ const sampleWishlists = [
     matches: 9,
   },
 ]
+
+function RotatingIdeas() {
+  const [visible, setVisible] = useState([0, 1, 2])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(prev => prev.map(i => (i + 3) % bannerIdeas.length))
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-slate-400">People are looking for</span>
+      <AnimatePresence mode="popLayout">
+        {visible.map(idx => (
+          <motion.span
+            key={`${idx}-${bannerIdeas[idx].text}`}
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${bannerIdeas[idx].color}`}
+          >
+            {bannerIdeas[idx].emoji} {bannerIdeas[idx].text}
+          </motion.span>
+        ))}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function StatsBar({ apiCategories, apiWishlists }) {
+  const stats = [
+    { label: 'Categories', value: apiCategories.length || 5, icon: '📂' },
+    { label: 'Active Wishes', value: apiWishlists.length || 0, icon: '⭐' },
+    { label: 'Matches Found', value: apiWishlists.reduce((sum, w) => sum + (w.match_count || 0), 0), icon: '🎯' },
+    { label: 'Marketplaces', value: '15+', icon: '🏪' },
+  ]
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {stats.map(stat => (
+        <div key={stat.label} className="rounded-2xl bg-white border border-gray-200 p-4 text-center">
+          <span className="text-2xl">{stat.icon}</span>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{stat.value}</p>
+          <p className="text-xs text-slate-500">{stat.label}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function MobileBottomNav({ onHome, onSearch, onProfile }) {
   return (
@@ -301,7 +364,7 @@ function LatestLinks() {
   )
 }
 
-function WishlistMasonry() {
+function WishlistMasonry({ apiWishlists }) {
   const breakpointColumnsObj = {
     default: 5,
     1280: 4,
@@ -310,13 +373,26 @@ function WishlistMasonry() {
     640: 1,
   }
 
+  // Use API data if available, fallback to sample data
+  const items = apiWishlists.length > 0
+    ? apiWishlists.map(w => ({
+        id: w.id,
+        title: w.display_title || w.title,
+        price: w.filters_json?.price ? `₹${Number(w.filters_json.price).toLocaleString('en-IN')}` : '',
+        location: w.filters_json?.location || '',
+        category: w.category || w.category_name || 'General',
+        urgency: w.priority || 'Medium',
+        matches: w.match_count || 0,
+      }))
+    : sampleWishlists
+
   return (
     <Masonry
       breakpointCols={breakpointColumnsObj}
       className="masonry-grid"
       columnClassName="masonry-grid-column"
     >
-      {sampleWishlists.map((item, index) => (
+      {items.map((item, index) => (
         <motion.div
           key={item.id}
           initial={{ opacity: 0, y: 30 }}
@@ -348,6 +424,25 @@ export default function HomePage() {
   const { isLoggedIn } = useAuth()
   const [activeFeature, setActiveFeature] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+  const [apiCategories, setApiCategories] = useState([])
+  const [apiWishlists, setApiWishlists] = useState([])
+
+  // Fetch dynamic data from API
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [catRes, wlRes] = await Promise.all([
+          api.get('/wishlist/categories'),
+          api.get('/wishlist/wishlists?limit=12'),
+        ])
+        if (catRes.ok) setApiCategories(await catRes.json())
+        if (wlRes.ok) setApiWishlists(await wlRes.json())
+      } catch (err) {
+        console.error('Failed to load home data:', err)
+      }
+    }
+    fetchData()
+  }, [])
 
   useEffect(() => {
     if (isPaused) return
@@ -388,12 +483,8 @@ export default function HomePage() {
               <p className="mt-6 text-lg leading-8 text-slate-600 max-w-xl">
                 WISHI is a smarter way to buy. Instead of searching across multiple platforms, simply tell us what you want — and we'll bring the best matches to you.
               </p>
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <span className="text-sm text-slate-400">Looking for</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-sm font-medium text-blue-600">🛵 Scooter under ₹70K</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-sm font-medium text-emerald-600">🏠 2BHK for Rent</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 border border-violet-100 px-3 py-1 text-sm font-medium text-violet-600">📱 iPhone in Budget</span>
-                <span className="text-sm text-slate-400">?</span>
+              <div className="mt-5">
+                <RotatingIdeas />
               </div>
               <p className="mt-4 text-sm text-slate-400">
                 Create a wish in seconds and start receiving matching listings automatically.<br />
@@ -416,6 +507,11 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Stats Bar ──────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10 mb-8">
+        <StatsBar apiCategories={apiCategories} apiWishlists={apiWishlists} />
+      </section>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <section className="mb-14">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
@@ -429,7 +525,10 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-5">
-            {categories.map((category) => (
+            {(apiCategories.length > 0
+              ? apiCategories.map(cat => ({ title: cat.name, subtitle: (cat.subcategories || []).map(s => s.name).join(', ') || 'Browse all' }))
+              : categories
+            ).map((category) => (
               <CategoryCard key={category.title} category={category} />
             ))}
           </div>
@@ -465,7 +564,7 @@ export default function HomePage() {
             </button>
           </div>
           <div className="mt-8">
-            <WishlistMasonry />
+            <WishlistMasonry apiWishlists={apiWishlists} />
           </div>
         </section>
 
