@@ -95,13 +95,10 @@ def notify_cluster(cluster_id: int, message: str):
 
 @celery.task(name="daily_serper_refresh")
 def daily_serper_refresh():
-    """Daily task: search all legal APIs for active wishlists and insert new matches."""
-    from services.matching.app.serper import search_and_score_for_wishlist
-    from services.matching.app.google_cse import search_and_score_google_cse
-    from services.matching.app.flipkart_affiliate import search_and_score_flipkart
-    from services.matching.app.amazon_affiliate import search_and_score_amazon
+    """Daily task: find matches for all active wishlists."""
+    from services.matching.app.matcher import find_matches
 
-    logger.info("Starting daily search refresh for all active wishlists")
+    logger.info("Starting daily match refresh for all active wishlists")
 
     with create_repos() as repos:
         wishlist_repo = repos.wishlist()
@@ -120,67 +117,40 @@ def daily_serper_refresh():
             for wl in wishlists:
                 total_wishlists += 1
                 try:
-                    total_new += _search_refresh_one(
-                        wl, match_repo,
-                        [search_and_score_for_wishlist, search_and_score_google_cse,
-                         search_and_score_flipkart, search_and_score_amazon],
-                    )
+                    wish_dict = {
+                        "title": wl.title,
+                        "category": getattr(wl, "category", ""),
+                        "subcategory": getattr(wl, "subcategory", ""),
+                        "filters_json": wl.filters_json or {},
+                    }
+                    matches = find_matches(wish_dict, max_fetch=15, min_score=30, daily_refresh=True)
+
+                    for r in matches:
+                        url = r.get("url", "")
+                        if match_repo.get_by_url(url):
+                            continue
+
+                        status = "auto_publish" if r.get("score", 0) >= 60 else "admin_review"
+                        match_repo.create_match(
+                            cluster_id=None,
+                            url=url,
+                            source=r.get("source", "unknown"),
+                            score=r.get("score", 0),
+                            status=status,
+                            wishlist_id=wl.id,
+                            title=r.get("title"),
+                            description=r.get("description"),
+                            price=float(r["price"]) if r.get("price") else None,
+                            formatted_price=r.get("formatted_price"),
+                        )
+                        total_new += 1
                 except Exception as e:
-                    logger.error(f"Search refresh failed for wishlist {wl.id}: {e}", exc_info=True)
-                # Rate-limit: 1 second between wishlists
+                    logger.error(f"Match refresh failed for wishlist {wl.id}: {e}", exc_info=True)
+
                 time.sleep(1)
 
             if len(wishlists) < batch_size:
                 break
             skip += batch_size
 
-    logger.info(f"Daily search refresh complete: {total_wishlists} wishlists, {total_new} new matches")
-
-
-def _search_refresh_one(wl, match_repo, search_functions) -> int:
-    """Search all legal APIs for one wishlist and insert new matches."""
-    wish_dict = {
-        "title": wl.title,
-        "category": "",
-        "subcategory": "",
-        "filters_json": wl.filters_json or {},
-    }
-
-    all_results = []
-    for search_fn in search_functions:
-        try:
-            results = search_fn(wish_dict)
-            all_results.extend(results)
-        except Exception as e:
-            logger.warning(f"{search_fn.__name__} failed for wishlist {wl.id}: {e}")
-
-    # Deduplicate
-    seen_urls = set()
-    new_count = 0
-
-    for r in all_results:
-        url = r.get("url", "")
-        if url in seen_urls:
-            continue
-        seen_urls.add(url)
-
-        if match_repo.get_by_url(url):
-            continue
-
-        status = "auto_publish" if r.get("score", 0) >= 60 else "admin_review"
-
-        match_repo.create_match(
-            cluster_id=None,
-            url=url,
-            source=r.get("source", "unknown"),
-            score=r.get("score", 0),
-            status=status,
-            wishlist_id=wl.id,
-            title=r.get("title"),
-            description=r.get("description"),
-            price=float(r["price"]) if r.get("price") else None,
-            formatted_price=r.get("formatted_price"),
-        )
-        new_count += 1
-
-    return new_count
+    logger.info(f"Daily refresh complete: {total_wishlists} wishlists, {total_new} new matches")

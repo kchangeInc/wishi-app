@@ -8,11 +8,7 @@ from fastapi import FastAPI, BackgroundTasks
 from kafka import KafkaConsumer
 from shared.repository.factory import create_repos
 from shared.log_config import add_logging_middleware, build_trace_headers, setup_logging
-from app.serper import search_and_score_for_wishlist
-from app.google_cse import search_and_score_google_cse
-from app.flipkart_affiliate import search_and_score_flipkart
-from app.amazon_affiliate import search_and_score_amazon
-from app.seo_scraper import enrich_candidates_with_seo
+from app.matcher import find_matches
 
 setup_logging("matching")
 logger = logging.getLogger(__name__)
@@ -106,53 +102,14 @@ def process_wishlist(wishlist_id: int):
         logger.warning(f"Match engine query failed: {e}", exc_info=True)
         queries = []
 
-    # 4) Search for matches using legal APIs
-    candidates = []
-
-    # SerperDev Google Search
+    # 4) Find matches — search + fetch pages + extract SEO metadata + score
     try:
-        serper_results = search_and_score_for_wishlist(wish)
-        candidates.extend(serper_results)
+        candidates = find_matches(wish, max_fetch=20, min_score=30)
     except Exception as e:
-        logger.warning(f"SerperDev search failed for wishlist {wishlist_id}: {e}", exc_info=True)
+        logger.error(f"Matching failed for wishlist {wishlist_id}: {e}", exc_info=True)
+        candidates = []
 
-    # Google Custom Search API
-    try:
-        cse_results = search_and_score_google_cse(wish)
-        candidates.extend(cse_results)
-    except Exception as e:
-        logger.warning(f"Google CSE search failed for wishlist {wishlist_id}: {e}", exc_info=True)
-
-    # Flipkart Affiliate API
-    try:
-        flipkart_results = search_and_score_flipkart(wish)
-        candidates.extend(flipkart_results)
-    except Exception as e:
-        logger.warning(f"Flipkart Affiliate search failed for wishlist {wishlist_id}: {e}", exc_info=True)
-
-    # Amazon Product Advertising API
-    try:
-        amazon_results = search_and_score_amazon(wish)
-        candidates.extend(amazon_results)
-    except Exception as e:
-        logger.warning(f"Amazon PA-API search failed for wishlist {wishlist_id}: {e}", exc_info=True)
-
-    # De-dupe by URL
-    seen = set()
-    unique_candidates = []
-    for c in candidates:
-        if c['url'] not in seen:
-            seen.add(c['url'])
-            unique_candidates.append(c)
-
-    # 5) Verify candidates — fetch actual pages, extract real data, reject dead/fake links
-    try:
-        verified_candidates = verify_and_filter_candidates(unique_candidates, wish, max_verify=20)
-    except Exception as e:
-        logger.warning(f"Page verification failed, using unverified results: {e}", exc_info=True)
-        verified_candidates = unique_candidates
-
-    for candidate in verified_candidates[:30]:
+    for candidate in candidates[:30]:
         # Use pre-computed score if available (from scrapers/serper), otherwise validate via service
         if candidate.get("score"):
             score = candidate["score"]
