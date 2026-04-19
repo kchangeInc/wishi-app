@@ -1,9 +1,6 @@
 # shared/service/wishlist_service.py
 """Wishlist business logic service layer"""
 
-from sqlalchemy.orm import Session
-from shared.repository.wishlist import WishlistRepository
-from shared.models import Wishlist
 from typing import List, Optional, Dict
 from datetime import datetime
 import logging
@@ -14,9 +11,8 @@ logger = logging.getLogger(__name__)
 class WishlistService:
     """Wishlist service - handles business logic"""
 
-    def __init__(self, db: Session):
-        self.repo = WishlistRepository(db)
-        self.db = db
+    def __init__(self, repos):
+        self.repo = repos.wishlist()
 
     def create_wishlist(
         self, title: str, user_id: int, user_email: str,
@@ -92,38 +88,46 @@ class WishlistService:
         return [self._wishlist_to_dict(w) for w in wishlists]
 
     @staticmethod
-    def _wishlist_to_dict(wishlist: Wishlist) -> Dict:
+    def _wishlist_to_dict(wishlist) -> Dict:
         if not wishlist:
             return None
+        if isinstance(wishlist, dict):
+            return wishlist
         result = {
-            "id": wishlist.id,
-            "title": wishlist.title,
-            "display_title": wishlist.display_title,
-            "description": wishlist.description,
-            "category_id": wishlist.category_id,
-            "subcategory_id": wishlist.subcategory_id,
-            "filters_json": wishlist.filters_json,
-            "notes": wishlist.notes,
-            "user_email": wishlist.user_email,
-            "user_id": wishlist.user_id,
-            "expiry_date": wishlist.expiry_date.isoformat() if wishlist.expiry_date else None,
-            "status": wishlist.status,
-            "priority": wishlist.priority,
-            "is_active": wishlist.is_active,
-            "is_deleted": wishlist.is_deleted,
-            "created_at": wishlist.created_at.isoformat() if wishlist.created_at else None,
-            "updated_at": wishlist.updated_at.isoformat() if wishlist.updated_at else None,
-            "created_by": wishlist.created_by,
-            "updated_by": wishlist.updated_by,
-            "version": wishlist.version,
+            "id": getattr(wishlist, "id", None),
+            "title": getattr(wishlist, "title", None),
+            "display_title": getattr(wishlist, "display_title", None),
+            "description": getattr(wishlist, "description", None),
+            "category_id": getattr(wishlist, "category_id", None),
+            "subcategory_id": getattr(wishlist, "subcategory_id", None),
+            "filters_json": getattr(wishlist, "filters_json", None),
+            "notes": getattr(wishlist, "notes", None),
+            "user_email": getattr(wishlist, "user_email", None),
+            "user_id": getattr(wishlist, "user_id", None),
+            "expiry_date": getattr(wishlist, "expiry_date", None),
+            "status": getattr(wishlist, "status", None),
+            "priority": getattr(wishlist, "priority", None),
+            "is_active": getattr(wishlist, "is_active", None),
+            "is_deleted": getattr(wishlist, "is_deleted", None),
+            "created_at": getattr(wishlist, "created_at", None),
+            "updated_at": getattr(wishlist, "updated_at", None),
+            "created_by": getattr(wishlist, "created_by", None),
+            "updated_by": getattr(wishlist, "updated_by", None),
+            "version": getattr(wishlist, "version", None),
         }
-        if wishlist.field_values:
+        # Format datetime fields if they have isoformat
+        for key in ("expiry_date", "created_at", "updated_at"):
+            if result[key] and hasattr(result[key], "isoformat"):
+                result[key] = result[key].isoformat()
+        # Handle field_values if present
+        field_values = getattr(wishlist, "field_values", None)
+        if field_values:
             result["field_values"] = [
                 {
-                    "field_definition_id": fv.field_definition_id,
-                    "value_text": fv.value_text,
-                    "value_numeric": float(fv.value_numeric) if fv.value_numeric else None,
+                    "field_definition_id": getattr(fv, "field_definition_id", None),
+                    "value_text": getattr(fv, "value_text", None),
+                    "value_numeric": float(getattr(fv, "value_numeric", 0)) if getattr(fv, "value_numeric", None) else None,
                 }
-                for fv in wishlist.field_values
+                for fv in field_values
             ]
         return result

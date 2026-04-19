@@ -8,12 +8,17 @@ export const metadata = {
   title: 'WISHI - AI-Powered Deal Marketplace',
   description: 'Discover amazing deals with AI-powered wishlists and smart matching',
   manifest: '/manifest.json',
-  themeColor: '#E60023',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#E60023',
 }
 
 export default function RootLayout({ children }) {

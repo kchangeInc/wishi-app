@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { User, Lock, Heart, MessageSquare, HelpCircle, LogOut, Star, ChevronDown, ChevronRight, Check, Bookmark, History, Bell, Camera, Link2, Globe, X } from 'lucide-react'
@@ -698,7 +698,7 @@ function NotificationsSection() {
 }
 
 // ── Main Page ──
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isLoggedIn, logout } = useAuth()
@@ -810,5 +810,13 @@ export default function DashboardPage() {
       </div>
       <Footer />
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardContent />
+    </Suspense>
   )
 }

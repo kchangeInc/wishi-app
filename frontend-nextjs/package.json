@@ -8,9 +8,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@react-oauth/google": "^0.13.5",
     "autoprefixer": "^10.4.17",
     "critters": "^0.0.23",
+    "firebase": "^12.12.0",
     "framer-motion": "^11.0.3",
     "lucide-react": "^0.344.0",
     "next": "14.2.5",

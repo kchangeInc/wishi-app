@@ -26,6 +26,11 @@ ENV = {
     "LOG_FORMAT": "text",
     "ENABLE_STDOUT_LOGS": "true",
     "ENABLE_FILE_LOGS": "false",
+    "DB_BACKEND": "firestore",  # "postgresql" or "firestore"
+    "FIRESTORE_PROJECT_ID": "wishi-87328",
+    "GOOGLE_APPLICATION_CREDENTIALS": os.path.join(
+        os.path.dirname(__file__), "..", "wishi-87328-firebase-adminsdk-fbsvc-810e2462d6.json"
+    ),
     # Service URLs for gateway routing
     "AUTH_SERVICE_URL": "http://localhost:8001",
     "WISHLIST_SERVICE_URL": "http://localhost:8002",

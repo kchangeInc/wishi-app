@@ -60,11 +60,19 @@ class ServiceUrls:
 
 
 @dataclass(frozen=True)
+class FirestoreSettings:
+    project_id: str
+    credentials_path: str
+
+
+@dataclass(frozen=True)
 class BackendSettings:
     database: DatabaseSettings
     auth: AuthSettings
     messaging: MessagingSettings
     service_urls: ServiceUrls
+    db_backend: str
+    firestore: FirestoreSettings
 
 
 @lru_cache(maxsize=1)
@@ -77,6 +85,12 @@ def get_settings() -> BackendSettings:
     db_url = _get_str(
         "DATABASE_URL",
         f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}",
+    )
+
+    db_backend = _get_str("DB_BACKEND", "postgresql")
+    firestore = FirestoreSettings(
+        project_id=_get_str("FIRESTORE_PROJECT_ID", "wishi-87328"),
+        credentials_path=_get_str("GOOGLE_APPLICATION_CREDENTIALS", ""),
     )
 
     return BackendSettings(
@@ -109,4 +123,6 @@ def get_settings() -> BackendSettings:
             notification=_get_str("NOTIFICATION_SERVICE_URL", "http://localhost:8008"),
             admin=_get_str("ADMIN_SERVICE_URL", "http://localhost:8009"),
         ),
+        db_backend=db_backend,
+        firestore=firestore,
     )

@@ -4,10 +4,9 @@ import logging
 from datetime import datetime
 
 import httpx
-import psycopg2
 from fastapi import FastAPI, BackgroundTasks
 from kafka import KafkaConsumer
-from shared.db.connection import get_db_connection
+from shared.repository.factory import create_repos
 from shared.log_config import add_logging_middleware, build_trace_headers, setup_logging
 
 setup_logging("matching")
@@ -17,16 +16,6 @@ app = FastAPI()
 add_logging_middleware(app)
 
 PLATFORMS = ["OLX", "Spinny", "Cars24"]
-
-
-def _get_connection():
-    """Get a fresh DB connection, reconnecting if needed."""
-    try:
-        conn = get_db_connection()
-        return conn
-    except Exception as e:
-        logger.error(f"Failed to get DB connection: {e}", exc_info=True)
-        raise
 
 
 @app.on_event("startup")
@@ -183,16 +172,9 @@ def validate_candidate(candidate: dict, product, location, price):
 
 
 def store_match(cluster_id, url, source, score, status):
-    conn = _get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO matches(cluster_id, url, source, score, status, last_validated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
-                (cluster_id, url, source, score, status)
-            )
-            conn.commit()
-    finally:
-        conn.close()
+    with create_repos() as repos:
+        repo = repos.match()
+        repo.create_match(cluster_id=cluster_id, url=url, source=source, score=score, status=status)
 
 
 def send_notification(cluster_id, message, recipients):

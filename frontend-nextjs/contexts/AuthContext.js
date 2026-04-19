@@ -43,17 +43,8 @@ export function AuthProvider({ children }) {
     setUserState(null)
   }, [])
 
-  // Legacy compat: simple login without Google (for demo/dev)
-  const loginDemo = useCallback(() => {
-    const demoUser = { id: 0, email: 'demo@wishi.in', name: 'Demo User', display_name: 'Demo User', role: 'buyer' }
-    clearTokens()
-    setUser(demoUser)
-    setUserState(demoUser)
-    setIsLoggedIn(true)
-  }, [])
-
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, loading, login, loginEmail, loginDemo, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, loading, login, loginEmail, logout }}>
       {children}
     </AuthContext.Provider>
   )

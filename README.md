@@ -2,6 +2,15 @@
 
 AI-powered listing aggregator marketplace MVP with buyer wishlists, seller listings, and automatic matching.
 
+## How to Run
+### Terminal 1 — Backend:
+``` python scripts/run_local.py ```
+
+### Terminal 2 — Frontend:
+cd frontend-nextjs
+npm run dev
+
+
 ## 🚀 Quick Start
 
 ### Option 1: Local Development (Recommended - No Docker Required)

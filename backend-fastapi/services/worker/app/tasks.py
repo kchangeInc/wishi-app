@@ -2,10 +2,9 @@
 
 import logging
 import httpx
-import psycopg2
 from celery import Celery
 from datetime import datetime, timedelta
-from shared.db.connection import get_db_connection
+from shared.repository.factory import create_repos
 from shared.log_config import build_trace_headers, setup_logging
 
 setup_logging("worker")
@@ -25,10 +24,6 @@ celery.conf.beat_schedule = {
 celery.conf.timezone = "UTC"
 
 
-def _get_connection():
-    """Get a fresh DB connection for each task."""
-    return get_db_connection()
-
 @celery.task(name="match_wishlist")
 def match_wishlist(wishlist_id):
     logger.info(f"Received match_wishlist task: wishlist_id={wishlist_id}")
@@ -45,20 +40,16 @@ def match_wishlist(wishlist_id):
 @celery.task(name="run_validation_pipeline")
 def run_validation_pipeline():
     logger.info("Starting validation pipeline run")
-    conn = _get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, url, cluster_id, score, status FROM matches WHERE status IN ('auto_publish','admin_review', 'new') ORDER BY last_validated_at NULLS FIRST LIMIT 50")
-            rows = cur.fetchall()
+    with create_repos() as repos:
+        match_repo = repos.match()
+        matches = match_repo.get_pending_validation(limit=50)
 
-        for row in rows:
-            match_id, url, cluster_id, score, status = row
-
-            if status == 'admin_review':
+        for m in matches:
+            if m.status == 'admin_review':
                 try:
                     with httpx.Client(timeout=10.0) as client:
                         validation_payload = {
-                            "url": url,
+                            "url": m.url,
                             "product": "",
                             "brand": "",
                             "model": "",
@@ -72,26 +63,18 @@ def run_validation_pipeline():
                         )
                         if vresp.status_code == 200:
                             vdata = vresp.json()
-                            score_new = vdata.get("score", score)
-                            status_new = vdata.get("status", status)
-                            with conn.cursor() as cur:
-                                cur.execute(
-                                    "UPDATE matches SET score=%s, status=%s, last_validated_at=NOW() WHERE id=%s",
-                                    (score_new, status_new, match_id)
-                                )
-                                conn.commit()
+                            score_new = vdata.get("score", m.score)
+                            status_new = vdata.get("status", m.status)
+                            match_repo.update_match(m.id, score=score_new, status=status_new)
                             if status_new == "auto_publish":
-                                notify_cluster(cluster_id, f"Match validated and auto-published: {url}")
+                                notify_cluster(m.cluster_id, f"Match validated and auto-published: {m.url}")
                 except Exception as e:
-                    logger.error(f"Validation pipeline error for match {match_id}: {e}", exc_info=True)
-    finally:
-        conn.close()
+                    logger.error(f"Validation pipeline error for match {m.id}: {e}", exc_info=True)
 
 
 def notify_cluster(cluster_id: int, message: str):
     try:
         with httpx.Client(timeout=10.0) as client:
-            # fetch cluster buyers from cluster service (placeholder) and notify
             client.post(
                 "http://notification-service:8008/notify",
                 json={
