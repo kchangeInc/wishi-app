@@ -130,15 +130,18 @@ const sampleWishlists = [
   },
 ]
 
-function RotatingIdeas() {
+function RotatingIdeas({ ideas = [] }) {
+  const items = ideas.length > 0
+    ? ideas.map(i => ({ emoji: i.emoji, text: i.text, color: `${i.color_bg} ${i.color_border} ${i.color_text}` }))
+    : bannerIdeas
   const [visible, setVisible] = useState([0, 1, 2])
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setVisible(prev => prev.map(i => (i + 3) % bannerIdeas.length))
+      setVisible(prev => prev.map(i => (i + 3) % items.length))
     }, 3000)
     return () => clearInterval(interval)
-  }, [])
+  }, [items.length])
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -146,14 +149,14 @@ function RotatingIdeas() {
       <AnimatePresence mode="popLayout">
         {visible.map(idx => (
           <motion.span
-            key={`${idx}-${bannerIdeas[idx].text}`}
+            key={`${idx}-${items[idx].text}`}
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: -10 }}
             transition={{ duration: 0.3 }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${bannerIdeas[idx].color}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${items[idx].color}`}
           >
-            {bannerIdeas[idx].emoji} {bannerIdeas[idx].text}
+            {items[idx].emoji} {items[idx].text}
           </motion.span>
         ))}
       </AnimatePresence>
@@ -426,17 +429,20 @@ export default function HomePage() {
   const [isPaused, setIsPaused] = useState(false)
   const [apiCategories, setApiCategories] = useState([])
   const [apiWishlists, setApiWishlists] = useState([])
+  const [apiBannerIdeas, setApiBannerIdeas] = useState([])
 
   // Fetch dynamic data from API
   useEffect(() => {
     async function fetchData() {
       try {
-        const [catRes, wlRes] = await Promise.all([
+        const [catRes, wlRes, bannerRes] = await Promise.all([
           api.get('/wishlist/categories'),
           api.get('/wishlist/wishlists?limit=12'),
+          api.get('/wishlist/banner-ideas'),
         ])
         if (catRes.ok) setApiCategories(await catRes.json())
         if (wlRes.ok) setApiWishlists(await wlRes.json())
+        if (bannerRes.ok) setApiBannerIdeas(await bannerRes.json())
       } catch (err) {
         console.error('Failed to load home data:', err)
       }
@@ -484,7 +490,7 @@ export default function HomePage() {
                 WISHI is a smarter way to buy. Instead of searching across multiple platforms, simply tell us what you want — and we'll bring the best matches to you.
               </p>
               <div className="mt-5">
-                <RotatingIdeas />
+                <RotatingIdeas ideas={apiBannerIdeas} />
               </div>
               <p className="mt-4 text-sm text-slate-400">
                 Create a wish in seconds and start receiving matching listings automatically.<br />

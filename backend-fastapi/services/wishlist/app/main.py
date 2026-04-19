@@ -102,6 +102,15 @@ class FeedbackCreate(BaseModel):
     rating: int
     message: Optional[str] = None
 
+class BannerIdeaCreate(BaseModel):
+    emoji: str
+    text: str
+    color_bg: str = "bg-gray-50"
+    color_border: str = "border-gray-100"
+    color_text: str = "text-gray-600"
+    category_id: Optional[int] = None
+    display_order: int = 0
+
 # ---- Category / City / MarketplaceSource (public) ----
 
 @app.get("/categories")
@@ -141,6 +150,10 @@ def get_categories(repos: RepositoryFactory = Depends(get_repos)):
             "name": cat.name,
             "slug": cat.slug,
             "icon": cat.icon,
+            "emoji": cat.emoji,
+            "color_bg": cat.color_bg,
+            "color_border": cat.color_border,
+            "color_text": cat.color_text,
             "subcategories": subcats,
         })
     return result
@@ -156,6 +169,56 @@ def get_marketplace_sources(category_id: int = None, repos: RepositoryFactory = 
     repo = repos.category()
     sources = repo.get_marketplace_sources(category_id=category_id)
     return [{"id": s.id, "name": s.name, "slug": s.slug, "url_template": s.url_template, "color": s.color} for s in sources]
+
+# ---- Banner Ideas ----
+
+@app.get("/banner-ideas")
+def get_banner_ideas(category_id: int = None, repos: RepositoryFactory = Depends(get_repos)):
+    repo = repos.banner_idea()
+    if category_id:
+        ideas = repo.get_by_category(category_id)
+    else:
+        ideas = repo.get_all_active()
+    return [
+        {
+            "id": idea.id,
+            "emoji": idea.emoji,
+            "text": idea.text,
+            "color_bg": idea.color_bg,
+            "color_border": idea.color_border,
+            "color_text": idea.color_text,
+            "category_id": idea.category_id,
+            "display_order": idea.display_order,
+        }
+        for idea in ideas
+    ]
+
+@app.post("/banner-ideas")
+def create_banner_idea(body: BannerIdeaCreate, request: Request, repos: RepositoryFactory = Depends(get_repos)):
+    user = get_current_user(request)
+    require_role(user, "admin")
+    repo = repos.banner_idea()
+    idea = repo.create(
+        emoji=body.emoji,
+        text=body.text,
+        color_bg=body.color_bg,
+        color_border=body.color_border,
+        color_text=body.color_text,
+        category_id=body.category_id,
+        display_order=body.display_order,
+    )
+    logger.info(f"Banner idea created: id={idea.id} by user_id={user['user_id']}")
+    return {"id": idea.id, "status": "created"}
+
+@app.delete("/banner-ideas/{idea_id}")
+def delete_banner_idea(idea_id: int, request: Request, repos: RepositoryFactory = Depends(get_repos)):
+    user = get_current_user(request)
+    require_role(user, "admin")
+    repo = repos.banner_idea()
+    if not repo.delete(idea_id):
+        raise HTTPException(status_code=404, detail="Banner idea not found")
+    logger.info(f"Banner idea deleted: id={idea_id} by user_id={user['user_id']}")
+    return {"status": "deleted"}
 
 # ---- Wishlist CRUD ----
 

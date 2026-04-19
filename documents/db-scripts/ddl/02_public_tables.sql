@@ -17,6 +17,24 @@ CREATE TABLE public.categories (
     name          VARCHAR(100) UNIQUE NOT NULL,
     slug          VARCHAR(100) UNIQUE NOT NULL,
     icon          VARCHAR(50),
+    emoji         VARCHAR(10),
+    color_bg      VARCHAR(60),            -- e.g. 'bg-blue-50'
+    color_border  VARCHAR(60),            -- e.g. 'border-blue-100'
+    color_text    VARCHAR(60),            -- e.g. 'text-blue-600'
+    display_order INTEGER DEFAULT 0,
+    is_active     BOOLEAN DEFAULT TRUE,
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Banner ideas (rotating chips on home page)
+CREATE TABLE public.banner_ideas (
+    id            SERIAL PRIMARY KEY,
+    category_id   INTEGER REFERENCES public.categories(id) ON DELETE SET NULL,
+    emoji         VARCHAR(10)  NOT NULL,
+    text          VARCHAR(200) NOT NULL,
+    color_bg      VARCHAR(60)  NOT NULL DEFAULT 'bg-gray-50',
+    color_border  VARCHAR(60)  NOT NULL DEFAULT 'border-gray-100',
+    color_text    VARCHAR(60)  NOT NULL DEFAULT 'text-gray-600',
     display_order INTEGER DEFAULT 0,
     is_active     BOOLEAN DEFAULT TRUE,
     created_at    TIMESTAMPTZ DEFAULT NOW()

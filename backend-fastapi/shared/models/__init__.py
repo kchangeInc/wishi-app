@@ -31,11 +31,33 @@ class Category(Base):
     name = Column(String(100), unique=True, nullable=False)
     slug = Column(String(100), unique=True, nullable=False)
     icon = Column(String(50))
+    emoji = Column(String(10))
+    color_bg = Column(String(60))
+    color_border = Column(String(60))
+    color_text = Column(String(60))
     display_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     subcategories = relationship("Subcategory", back_populates="category", lazy="selectin")
+
+
+class BannerIdea(Base):
+    __tablename__ = "banner_ideas"
+    __table_args__ = {"schema": "public"}
+
+    id = Column(Integer, primary_key=True)
+    category_id = Column(Integer, ForeignKey("public.categories.id"))
+    emoji = Column(String(10), nullable=False)
+    text = Column(String(200), nullable=False)
+    color_bg = Column(String(60), nullable=False, default="bg-gray-50")
+    color_border = Column(String(60), nullable=False, default="border-gray-100")
+    color_text = Column(String(60), nullable=False, default="text-gray-600")
+    display_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    category = relationship("Category")
 
 
 class Subcategory(Base):

@@ -110,3 +110,10 @@ class RepositoryFactory:
             return PgFeedbackRepository(self.db)
         from shared.repository.firestore.feedback import FsFeedbackRepository
         return FsFeedbackRepository(self.db)
+
+    def banner_idea(self):
+        if self.backend == DbBackend.POSTGRESQL:
+            from shared.repository.pg.banner_idea import PgBannerIdeaRepository
+            return PgBannerIdeaRepository(self.db)
+        from shared.repository.firestore.banner_idea import FsBannerIdeaRepository
+        return FsBannerIdeaRepository(self.db)

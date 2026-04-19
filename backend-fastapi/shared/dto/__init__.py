@@ -170,10 +170,28 @@ class CategoryDTO:
     name: str
     slug: str
     icon: Optional[str] = None
+    emoji: Optional[str] = None
+    color_bg: Optional[str] = None
+    color_border: Optional[str] = None
+    color_text: Optional[str] = None
     display_order: int = 0
     is_active: bool = True
     created_at: Optional[datetime] = None
     subcategories: List[SubcategoryDTO] = field(default_factory=list)
+
+
+@dataclass
+class BannerIdeaDTO:
+    id: int
+    emoji: str
+    text: str
+    color_bg: str = "bg-gray-50"
+    color_border: str = "border-gray-100"
+    color_text: str = "text-gray-600"
+    category_id: Optional[int] = None
+    display_order: int = 0
+    is_active: bool = True
+    created_at: Optional[datetime] = None
 
 
 @dataclass
