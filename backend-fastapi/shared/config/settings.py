@@ -60,11 +60,42 @@ class ServiceUrls:
 
 
 @dataclass(frozen=True)
+class FirestoreSettings:
+    project_id: str
+    credentials_path: str
+
+
+@dataclass(frozen=True)
+class SerperSettings:
+    api_key: str
+
+
+@dataclass(frozen=True)
+class GoogleCseSettings:
+    api_key: str
+    cx: str
+
+
+@dataclass(frozen=True)
+class AffiliateSettings:
+    flipkart_affiliate_id: str
+    flipkart_affiliate_token: str
+    amazon_partner_tag: str
+    amazon_access_key: str
+    amazon_secret_key: str
+
+
+@dataclass(frozen=True)
 class BackendSettings:
     database: DatabaseSettings
     auth: AuthSettings
     messaging: MessagingSettings
     service_urls: ServiceUrls
+    db_backend: str
+    firestore: FirestoreSettings
+    serper: SerperSettings
+    google_cse: GoogleCseSettings
+    affiliate: AffiliateSettings
 
 
 @lru_cache(maxsize=1)
@@ -77,6 +108,12 @@ def get_settings() -> BackendSettings:
     db_url = _get_str(
         "DATABASE_URL",
         f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}",
+    )
+
+    db_backend = _get_str("DB_BACKEND", "postgresql")
+    firestore = FirestoreSettings(
+        project_id=_get_str("FIRESTORE_PROJECT_ID", "wishi-87328"),
+        credentials_path=_get_str("GOOGLE_APPLICATION_CREDENTIALS", ""),
     )
 
     return BackendSettings(
@@ -108,5 +145,21 @@ def get_settings() -> BackendSettings:
             validation=_get_str("VALIDATION_SERVICE_URL", "http://localhost:8007"),
             notification=_get_str("NOTIFICATION_SERVICE_URL", "http://localhost:8008"),
             admin=_get_str("ADMIN_SERVICE_URL", "http://localhost:8009"),
+        ),
+        db_backend=db_backend,
+        firestore=firestore,
+        serper=SerperSettings(
+            api_key=_get_str("SERPER_API_KEY", ""),
+        ),
+        google_cse=GoogleCseSettings(
+            api_key=_get_str("GOOGLE_CSE_API_KEY", ""),
+            cx=_get_str("GOOGLE_CSE_CX", ""),
+        ),
+        affiliate=AffiliateSettings(
+            flipkart_affiliate_id=_get_str("FLIPKART_AFFILIATE_ID", ""),
+            flipkart_affiliate_token=_get_str("FLIPKART_AFFILIATE_TOKEN", ""),
+            amazon_partner_tag=_get_str("AMAZON_PARTNER_TAG", ""),
+            amazon_access_key=_get_str("AMAZON_ACCESS_KEY", ""),
+            amazon_secret_key=_get_str("AMAZON_SECRET_KEY", ""),
         ),
     )

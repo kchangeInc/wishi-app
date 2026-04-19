@@ -108,7 +108,10 @@ export async function loginWithGoogleToken(idToken) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id_token: idToken }),
   })
-  if (!res.ok) throw new Error('Google login failed')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Google login failed')
+  }
   const data = await res.json()
   setTokens({ access_token: data.access_token, refresh_token: data.refresh_token })
   if (data.user) setUser(data.user)

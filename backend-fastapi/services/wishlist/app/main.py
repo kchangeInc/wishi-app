@@ -6,13 +6,9 @@ from pydantic import BaseModel
 import json
 import logging
 from shared.config.settings import get_settings
-from shared.db.session import get_db_session
+from shared.db.dependencies import get_repos
+from shared.repository.factory import RepositoryFactory
 from shared.service.wishlist_service import WishlistService
-from shared.repository.category import CategoryRepository
-from shared.repository.favourite import FavouriteRepository
-from shared.repository.saved_listing import SavedListingRepository
-from shared.repository.feedback import FeedbackRepository
-from shared.repository.match import MatchRepository
 from shared.user import get_current_user, get_optional_user, require_role
 from shared.log_config import setup_logging, add_logging_middleware
 
@@ -109,8 +105,8 @@ class FeedbackCreate(BaseModel):
 # ---- Category / City / MarketplaceSource (public) ----
 
 @app.get("/categories")
-def get_categories(db=Depends(get_db_session)):
-    repo = CategoryRepository(db)
+def get_categories(repos: RepositoryFactory = Depends(get_repos)):
+    repo = repos.category()
     categories = repo.get_all_categories()
     result = []
     for cat in categories:
@@ -150,23 +146,23 @@ def get_categories(db=Depends(get_db_session)):
     return result
 
 @app.get("/cities")
-def get_cities(search: str = None, metro_only: bool = False, db=Depends(get_db_session)):
-    repo = CategoryRepository(db)
+def get_cities(search: str = None, metro_only: bool = False, repos: RepositoryFactory = Depends(get_repos)):
+    repo = repos.category()
     cities = repo.get_all_cities(search=search, metro_only=metro_only)
     return [{"id": c.id, "name": c.name, "slug": c.slug, "state": c.state, "is_metro": c.is_metro} for c in cities]
 
 @app.get("/marketplace-sources")
-def get_marketplace_sources(category_id: int = None, db=Depends(get_db_session)):
-    repo = CategoryRepository(db)
+def get_marketplace_sources(category_id: int = None, repos: RepositoryFactory = Depends(get_repos)):
+    repo = repos.category()
     sources = repo.get_marketplace_sources(category_id=category_id)
     return [{"id": s.id, "name": s.name, "slug": s.slug, "url_template": s.url_template, "color": s.color} for s in sources]
 
 # ---- Wishlist CRUD ----
 
 @app.post("/wishlists")
-def create_wishlist(payload: WishlistCreate, request: Request, db=Depends(get_db_session)):
+def create_wishlist(payload: WishlistCreate, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    service = WishlistService(db)
+    service = WishlistService(repos)
     result = service.create_wishlist(
         title=payload.title,
         user_id=user["user_id"],
@@ -189,25 +185,25 @@ def create_wishlist(payload: WishlistCreate, request: Request, db=Depends(get_db
     return result
 
 @app.get("/wishlists")
-def get_all_wishlists(request: Request, user_only: bool = False, skip: int = 0, limit: int = 100, db=Depends(get_db_session)):
+def get_all_wishlists(request: Request, user_only: bool = False, skip: int = 0, limit: int = 100, repos: RepositoryFactory = Depends(get_repos)):
     user = get_optional_user(request)
-    service = WishlistService(db)
+    service = WishlistService(repos)
     if user_only and user:
         return service.get_user_wishlists(user["user_id"], skip, limit)
     return service.get_all_wishlists(skip, limit)
 
 @app.get("/wishlists/{wishlist_id}")
-def get_wishlist(wishlist_id: int, db=Depends(get_db_session)):
-    service = WishlistService(db)
+def get_wishlist(wishlist_id: int, repos: RepositoryFactory = Depends(get_repos)):
+    service = WishlistService(repos)
     wishlist = service.get_wishlist(wishlist_id)
     if not wishlist:
         raise HTTPException(status_code=404, detail="Wishlist not found")
     return wishlist
 
 @app.put("/wishlists/{wishlist_id}")
-def update_wishlist(wishlist_id: int, payload: WishlistCreate, request: Request, db=Depends(get_db_session)):
+def update_wishlist(wishlist_id: int, payload: WishlistCreate, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    service = WishlistService(db)
+    service = WishlistService(repos)
     result = service.update_wishlist(
         wishlist_id=wishlist_id,
         user_id=user["user_id"],
@@ -229,9 +225,9 @@ def update_wishlist(wishlist_id: int, payload: WishlistCreate, request: Request,
     return result
 
 @app.delete("/wishlists/{wishlist_id}")
-def delete_wishlist(wishlist_id: int, request: Request, db=Depends(get_db_session)):
+def delete_wishlist(wishlist_id: int, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    service = WishlistService(db)
+    service = WishlistService(repos)
     if not service.delete_wishlist(wishlist_id, user["user_id"]):
         raise HTTPException(status_code=404, detail="Wishlist not found")
     _publish_event("wishlist-events", {"wishlist_id": wishlist_id, "action": "DELETED", "user_id": user["user_id"]})
@@ -241,15 +237,15 @@ def delete_wishlist(wishlist_id: int, request: Request, db=Depends(get_db_sessio
 # ---- Matches for a wishlist ----
 
 @app.get("/wishlists/{wishlist_id}/matches")
-def get_wishlist_matches(wishlist_id: int, request: Request, skip: int = 0, limit: int = 50, db=Depends(get_db_session)):
+def get_wishlist_matches(wishlist_id: int, request: Request, skip: int = 0, limit: int = 50, repos: RepositoryFactory = Depends(get_repos)):
     user = get_optional_user(request)
-    match_repo = MatchRepository(db)
+    match_repo = repos.match()
     matches = match_repo.get_by_wishlist(wishlist_id, skip, limit)
 
     fav_ids = set()
     dismissed_ids = set()
     if user:
-        fav_repo = FavouriteRepository(db)
+        fav_repo = repos.favourite()
         fav_ids = fav_repo.get_favourite_match_ids(user["user_id"], wishlist_id)
         dismissed_ids = fav_repo.get_dismissed_match_ids(user["user_id"], wishlist_id)
 
@@ -280,34 +276,34 @@ def get_wishlist_matches(wishlist_id: int, request: Request, skip: int = 0, limi
 # ---- Favourites ----
 
 @app.post("/wishlists/{wishlist_id}/matches/{match_id}/favourite")
-def add_favourite(wishlist_id: int, match_id: int, request: Request, db=Depends(get_db_session)):
+def add_favourite(wishlist_id: int, match_id: int, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    repo = FavouriteRepository(db)
+    repo = repos.favourite()
     repo.add_favourite(user["user_id"], match_id, wishlist_id)
     return {"status": "favourited"}
 
 @app.delete("/wishlists/{wishlist_id}/matches/{match_id}/favourite")
-def remove_favourite(wishlist_id: int, match_id: int, request: Request, db=Depends(get_db_session)):
+def remove_favourite(wishlist_id: int, match_id: int, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    repo = FavouriteRepository(db)
+    repo = repos.favourite()
     repo.remove_favourite(user["user_id"], match_id)
     return {"status": "unfavourited"}
 
 # ---- Dismiss ----
 
 @app.post("/wishlists/{wishlist_id}/matches/{match_id}/dismiss")
-def dismiss_match(wishlist_id: int, match_id: int, body: DismissAction, request: Request, db=Depends(get_db_session)):
+def dismiss_match(wishlist_id: int, match_id: int, body: DismissAction, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    repo = FavouriteRepository(db)
+    repo = repos.favourite()
     repo.dismiss_match(user["user_id"], match_id, wishlist_id, reason=body.reason)
     return {"status": "dismissed"}
 
 # ---- Saved Listings ----
 
 @app.get("/saved-listings")
-def get_saved_listings(request: Request, skip: int = 0, limit: int = 50, db=Depends(get_db_session)):
+def get_saved_listings(request: Request, skip: int = 0, limit: int = 50, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    repo = SavedListingRepository(db)
+    repo = repos.saved_listing()
     listings = repo.get_user_saved(user["user_id"], skip, limit)
     return [
         {
@@ -326,16 +322,16 @@ def get_saved_listings(request: Request, skip: int = 0, limit: int = 50, db=Depe
     ]
 
 @app.post("/saved-listings")
-def save_listing(body: SavedListingCreate, request: Request, db=Depends(get_db_session)):
+def save_listing(body: SavedListingCreate, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    repo = SavedListingRepository(db)
+    repo = repos.saved_listing()
     listing = repo.save_listing(user["user_id"], **body.model_dump())
     return {"id": listing.id, "status": "saved"}
 
 @app.delete("/saved-listings/{listing_id}")
-def delete_saved_listing(listing_id: int, request: Request, db=Depends(get_db_session)):
+def delete_saved_listing(listing_id: int, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
-    repo = SavedListingRepository(db)
+    repo = repos.saved_listing()
     if not repo.delete_saved(listing_id, user["user_id"]):
         raise HTTPException(status_code=404, detail="Listing not found")
     return {"status": "deleted"}
@@ -343,11 +339,11 @@ def delete_saved_listing(listing_id: int, request: Request, db=Depends(get_db_se
 # ---- Feedback ----
 
 @app.post("/feedback")
-def submit_feedback(body: FeedbackCreate, request: Request, db=Depends(get_db_session)):
+def submit_feedback(body: FeedbackCreate, request: Request, repos: RepositoryFactory = Depends(get_repos)):
     user = get_current_user(request)
     if body.rating < 1 or body.rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be 1-5")
-    repo = FeedbackRepository(db)
+    repo = repos.feedback()
     fb = repo.create(user["user_id"], body.rating, body.message)
     logger.info(f"Feedback submitted: user_id={user['user_id']} rating={body.rating}")
     return {"id": fb.id, "status": "submitted"}

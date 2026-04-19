@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 import logging
-import psycopg2
-from shared.db.connection import get_db_connection
+from shared.db.dependencies import get_repos
+from shared.repository.factory import RepositoryFactory
 from shared.log_config import setup_logging, add_logging_middleware
 
 setup_logging("admin")
@@ -12,10 +13,6 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 add_logging_middleware(app)
 
-
-def _get_connection():
-    """Get a fresh DB connection."""
-    return get_db_connection()
 
 class MatchReviewRequest(BaseModel):
     match_id: int
@@ -27,52 +24,31 @@ class MatchReviewResponse(BaseModel):
     status: str
 
 
-def _ensure_table():
-    pass
-
-
-@app.on_event("startup")
-async def startup():
-    _ensure_table()
-
-
 @app.post("/review", response_model=MatchReviewResponse)
-def review(request: MatchReviewRequest):
+def review(request: MatchReviewRequest, repos: RepositoryFactory = Depends(get_repos)):
     if request.action not in ["approve", "reject"]:
         raise HTTPException(status_code=400, detail="action must be approve or reject")
 
     logger.info(f"Match review: match_id={request.match_id} action={request.action}")
     new_status = "published" if request.action == "approve" else "rejected"
 
-    conn = _get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE matches SET status=%s WHERE id=%s RETURNING id", (new_status, request.match_id))
-            row = cur.fetchone()
-            conn.commit()
-    finally:
-        conn.close()
-
-    if not row:
+    repo = repos.match()
+    match = repo.update_match(request.match_id, status=new_status)
+    if not match:
         logger.warning(f"Match not found for review: match_id={request.match_id}")
         raise HTTPException(status_code=404, detail="match not found")
 
     return MatchReviewResponse(match_id=request.match_id, status=new_status)
 
 
-@app.get("/dashboard/pending")
-def pending_dashboard():
-    conn = _get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, cluster_id, url, source, score, status, created_at FROM matches WHERE status = 'admin_review' ORDER BY created_at DESC")
-            rows = cur.fetchall()
-    finally:
-        conn.close()
+@app.get("/dashboard/pending", response_class=HTMLResponse)
+def pending_dashboard(repos: RepositoryFactory = Depends(get_repos)):
+    repo = repos.match()
+    matches = repo.get_by_status("admin_review")
 
     items = "".join([
-        f"<tr><td>{r[0]}</td><td>{r[1]}</td><td><a href='{r[2]}' target='_blank'>{r[2]}</a></td><td>{r[3]}</td><td>{r[4]}</td><td>{r[5]}</td><td>{r[6]}</td></tr>"
-        for r in rows
+        f"<tr><td>{m.id}</td><td>{m.cluster_id}</td><td><a href='{m.url}' target='_blank'>{m.url}</a></td><td>{m.source}</td><td>{m.score}</td><td>{m.status}</td><td>{m.created_at}</td></tr>"
+        for m in matches
     ])
 
     html = f"""
@@ -90,4 +66,3 @@ def pending_dashboard():
 @app.get("/health")
 def health():
     return {"status": "admin ok"}
-

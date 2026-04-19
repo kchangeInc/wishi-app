@@ -71,6 +71,7 @@ export default function Footer() {
 
           <div className="border-t border-slate-800 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
+              <img src="/icon-192x192.png" alt="WISHI" className="w-6 h-6 rounded" />
               <span className="text-sm font-bold text-white tracking-wide">WISHI</span>
               <span className="text-slate-600">|</span>
               <span className="text-xs text-slate-500">A smarter way to buy</span>

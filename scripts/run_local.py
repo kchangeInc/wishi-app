@@ -26,6 +26,11 @@ ENV = {
     "LOG_FORMAT": "text",
     "ENABLE_STDOUT_LOGS": "true",
     "ENABLE_FILE_LOGS": "false",
+    "DB_BACKEND": "firestore",  # "postgresql" or "firestore"
+    "FIRESTORE_PROJECT_ID": "wishi-87328",
+    "GOOGLE_APPLICATION_CREDENTIALS": os.path.join(
+        os.path.dirname(__file__), "..", "wishi-87328-firebase-adminsdk-fbsvc-810e2462d6.json"
+    ),
     # Service URLs for gateway routing
     "AUTH_SERVICE_URL": "http://localhost:8001",
     "WISHLIST_SERVICE_URL": "http://localhost:8002",
@@ -36,6 +41,14 @@ ENV = {
     "VALIDATION_SERVICE_URL": "http://localhost:8007",
     "NOTIFICATION_SERVICE_URL": "http://localhost:8008",
     "ADMIN_SERVICE_URL": "http://localhost:8009",
+    "SERPER_API_KEY": os.getenv("SERPER_API_KEY", ""),
+    "GOOGLE_CSE_API_KEY": os.getenv("GOOGLE_CSE_API_KEY", ""),
+    "GOOGLE_CSE_CX": os.getenv("GOOGLE_CSE_CX", ""),
+    "FLIPKART_AFFILIATE_ID": os.getenv("FLIPKART_AFFILIATE_ID", ""),
+    "FLIPKART_AFFILIATE_TOKEN": os.getenv("FLIPKART_AFFILIATE_TOKEN", ""),
+    "AMAZON_PARTNER_TAG": os.getenv("AMAZON_PARTNER_TAG", ""),
+    "AMAZON_ACCESS_KEY": os.getenv("AMAZON_ACCESS_KEY", ""),
+    "AMAZON_SECRET_KEY": os.getenv("AMAZON_SECRET_KEY", ""),
 }
 
 # Each service: name, directory relative to BACKEND_DIR, uvicorn app path, port

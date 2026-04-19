@@ -47,6 +47,21 @@ services:
       - '8000:8000'
     environment:
       <<: *backend-logging-env
+      AUTH_SERVICE_URL: http://auth-service:8001
+      WISHLIST_SERVICE_URL: http://wishlist-service:8002
+      SELLER_SERVICE_URL: http://seller-service:8003
+      MATCHING_SERVICE_URL: http://matching-service:8004
+      CLUSTER_SERVICE_URL: http://cluster-service:8005
+      MATCH_ENGINE_SERVICE_URL: http://match-engine-service:8006
+      VALIDATION_SERVICE_URL: http://validation-service:8007
+      NOTIFICATION_SERVICE_URL: http://notification-service:8008
+      ADMIN_SERVICE_URL: http://admin-service:8009
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-prod}
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      DB_NAME: ${DB_NAME:-wishi}
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: postgres
     labels:
       <<: *structured-logging-labels
     depends_on:

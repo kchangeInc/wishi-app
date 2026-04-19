@@ -4,29 +4,17 @@ import logging
 from datetime import datetime
 
 import httpx
-import psycopg2
 from fastapi import FastAPI, BackgroundTasks
 from kafka import KafkaConsumer
-from shared.db.connection import get_db_connection
+from shared.repository.factory import create_repos
 from shared.log_config import add_logging_middleware, build_trace_headers, setup_logging
+from app.matcher import find_matches
 
 setup_logging("matching")
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 add_logging_middleware(app)
-
-PLATFORMS = ["OLX", "Spinny", "Cars24"]
-
-
-def _get_connection():
-    """Get a fresh DB connection, reconnecting if needed."""
-    try:
-        conn = get_db_connection()
-        return conn
-    except Exception as e:
-        logger.error(f"Failed to get DB connection: {e}", exc_info=True)
-        raise
 
 
 @app.on_event("startup")
@@ -114,48 +102,37 @@ def process_wishlist(wishlist_id: int):
         logger.warning(f"Match engine query failed: {e}", exc_info=True)
         queries = []
 
-    # 4) Scan sources and validate
-    candidates = []
-    for platform in PLATFORMS:
-        for q in queries:
-            candidates.extend(scrape_platform(platform, q))
+    # 4) Find matches — search + fetch pages + extract SEO metadata + score
+    try:
+        candidates = find_matches(wish, max_fetch=20, min_score=30)
+    except Exception as e:
+        logger.error(f"Matching failed for wishlist {wishlist_id}: {e}", exc_info=True)
+        candidates = []
 
-    # De-dupe by URL
-    seen = set()
-    unique_candidates = []
-    for c in candidates:
-        if c['url'] not in seen:
-            seen.add(c['url'])
-            unique_candidates.append(c)
+    for candidate in candidates[:30]:
+        # Use pre-computed score if available (from scrapers/serper), otherwise validate via service
+        if candidate.get("score"):
+            score = candidate["score"]
+            status = "auto_publish" if score >= 60 else "admin_review"
+        else:
+            score_data = validate_candidate(candidate, product, location, price)
+            score = score_data["score"]
+            status = score_data["status"]
 
-    for candidate in unique_candidates[:10]:
-        score_data = validate_candidate(candidate, product, location, price)
-        store_match(cluster_id, candidate["url"], candidate["source"], score_data["score"], score_data["status"])
-        if score_data["status"] == "auto_publish":
-            send_notification(cluster_id, f"🔥 New {product} under ₹{price} found in {location}", [wish.get("user_email")])
-
-
-def scrape_platform(platform: str, query: str):
-    # Simplified scraper simulation for a real match engine.
-    # A production version would call platform API or parse HTML.
-    # Here we return pseudo results.
-    entries = []
-    base_url = {
-        "OLX": "https://www.olx.in/item",
-        "Spinny": "https://www.spinny.com/car",
-        "Cars24": "https://www.cars24.com/buy-used-cars"
-    }.get(platform, "https://example.com")
-
-    for i in range(1, 4):
-        entries.append({
-            "url": f"{base_url}/{platform.lower()}-{query.replace(' ', '-')}-{i}",
-            "source": platform,
-            "title": f"{platform} listing {i} for {query}",
-            "price": 65000,
-            "location": "Chennai"
-        })
-
-    return entries
+        store_match(
+            cluster_id=cluster_id,
+            url=candidate["url"],
+            source=candidate.get("source", "unknown"),
+            score=score,
+            status=status,
+            wishlist_id=wishlist_id,
+            title=candidate.get("title"),
+            description=candidate.get("description"),
+            price=candidate.get("price"),
+            formatted_price=candidate.get("formatted_price"),
+        )
+        if status == "auto_publish":
+            send_notification(cluster_id, f"New {product} found in {location}", [wish.get("user_email")])
 
 
 def validate_candidate(candidate: dict, product, location, price):
@@ -182,17 +159,25 @@ def validate_candidate(candidate: dict, product, location, price):
     return {"score": 0, "status": "reject", "details": {"error": "validation_failed"}}
 
 
-def store_match(cluster_id, url, source, score, status):
-    conn = _get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO matches(cluster_id, url, source, score, status, last_validated_at) VALUES (%s, %s, %s, %s, %s, NOW())",
-                (cluster_id, url, source, score, status)
-            )
-            conn.commit()
-    finally:
-        conn.close()
+def store_match(cluster_id, url, source, score, status, wishlist_id=None,
+                title=None, description=None, price=None, formatted_price=None):
+    with create_repos() as repos:
+        repo = repos.match()
+        # Deduplicate by URL
+        if repo.get_by_url(url):
+            return
+        repo.create_match(
+            cluster_id=cluster_id,
+            url=url,
+            source=source,
+            score=score,
+            status=status,
+            wishlist_id=wishlist_id,
+            title=title,
+            description=description,
+            price=float(price) if price else None,
+            formatted_price=formatted_price,
+        )
 
 
 def send_notification(cluster_id, message, recipients):

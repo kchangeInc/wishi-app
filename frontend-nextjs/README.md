@@ -1,6 +1,10 @@
 # WISHI Frontend
 
 A Pinterest-inspired, mobile-first PWA for the AI-powered deal marketplace.
+npm i -g vercel
+vercel
+ vercel --prod
+vercel env add NEXT_PUBLIC_FIREBASE_API_KEY
 
 ## Features
 

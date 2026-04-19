@@ -1,5 +1,19 @@
-<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" rx="48" fill="#E60023"/>
-  <path d="M96 48C78.3 48 64 62.3 64 80C64 97.7 78.3 112 96 112C113.7 112 128 97.7 128 80C128 62.3 113.7 48 96 48ZM96 96C87.2 96 80 88.8 80 80C80 71.2 87.2 64 96 64C104.8 64 112 71.2 112 80C112 88.8 104.8 96 96 96Z" fill="white"/>
-  <path d="M96 120C75.6 120 56 104.4 56 80C56 55.6 75.6 40 96 40C116.4 40 136 55.6 136 80C136 104.4 116.4 120 96 120ZM96 56C84.4 56 72 65.4 72 80C72 94.6 84.4 104 96 104C107.6 104 120 94.6 120 80C120 65.4 107.6 56 96 56Z" fill="white" opacity="0.8"/>
+<svg width="192" height="192" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#0080FF"/>
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#0090FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="white"/>
+  <path d="M108 130 C60 185, 60 327, 108 382" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <path d="M148 175 C115 215, 115 297, 148 337" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <path d="M404 130 C452 185, 452 327, 404 382" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <path d="M364 175 C397 215, 397 297, 364 337" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <path d="M168 195 L256 380 L344 195" stroke="url(#wGrad)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M208 195 L256 320 L304 195" stroke="url(#wGrad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>
