@@ -1,9 +1,18 @@
 /** @type {import('next').NextConfig} */
-const withPWA = require('next-pwa')({
+const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
+  disable: false,
   register: true,
   skipWaiting: true,
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  workboxOptions: {
+    disableDevLogs: true,
+  },
+  fallbacks: {
+    document: '/offline',
+  },
 })
 
 const nextConfig = {
@@ -11,16 +20,14 @@ const nextConfig = {
   swcMinify: true,
   images: {
     domains: ['localhost'],
-    unoptimized: true, // For static export if needed
+    unoptimized: true,
   },
   experimental: {
     optimizeCss: true,
   },
-  // Performance optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // Fix HMR file watching on Windows
   webpack: (config) => {
     config.watchOptions = {
       poll: 1000,
@@ -28,7 +35,6 @@ const nextConfig = {
     }
     return config
   },
-  // PWA headers
   async headers() {
     return [
       {

@@ -28,3 +28,7 @@ rad.json
 #Test results file
 TestResults.xml
 .vercel
+
+# Secret/credential files
+*-firebase-adminsdk-*.json
+client_secret_*.json

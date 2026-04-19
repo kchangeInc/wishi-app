@@ -8,14 +8,17 @@ from fastapi import FastAPI, BackgroundTasks
 from kafka import KafkaConsumer
 from shared.repository.factory import create_repos
 from shared.log_config import add_logging_middleware, build_trace_headers, setup_logging
+from app.serper import search_and_score_for_wishlist
+from app.google_cse import search_and_score_google_cse
+from app.flipkart_affiliate import search_and_score_flipkart
+from app.amazon_affiliate import search_and_score_amazon
+from app.seo_scraper import enrich_candidates_with_seo
 
 setup_logging("matching")
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 add_logging_middleware(app)
-
-PLATFORMS = ["OLX", "Spinny", "Cars24"]
 
 
 @app.on_event("startup")
@@ -103,11 +106,36 @@ def process_wishlist(wishlist_id: int):
         logger.warning(f"Match engine query failed: {e}", exc_info=True)
         queries = []
 
-    # 4) Scan sources and validate
+    # 4) Search for matches using legal APIs
     candidates = []
-    for platform in PLATFORMS:
-        for q in queries:
-            candidates.extend(scrape_platform(platform, q))
+
+    # SerperDev Google Search
+    try:
+        serper_results = search_and_score_for_wishlist(wish)
+        candidates.extend(serper_results)
+    except Exception as e:
+        logger.warning(f"SerperDev search failed for wishlist {wishlist_id}: {e}", exc_info=True)
+
+    # Google Custom Search API
+    try:
+        cse_results = search_and_score_google_cse(wish)
+        candidates.extend(cse_results)
+    except Exception as e:
+        logger.warning(f"Google CSE search failed for wishlist {wishlist_id}: {e}", exc_info=True)
+
+    # Flipkart Affiliate API
+    try:
+        flipkart_results = search_and_score_flipkart(wish)
+        candidates.extend(flipkart_results)
+    except Exception as e:
+        logger.warning(f"Flipkart Affiliate search failed for wishlist {wishlist_id}: {e}", exc_info=True)
+
+    # Amazon Product Advertising API
+    try:
+        amazon_results = search_and_score_amazon(wish)
+        candidates.extend(amazon_results)
+    except Exception as e:
+        logger.warning(f"Amazon PA-API search failed for wishlist {wishlist_id}: {e}", exc_info=True)
 
     # De-dupe by URL
     seen = set()
@@ -117,34 +145,37 @@ def process_wishlist(wishlist_id: int):
             seen.add(c['url'])
             unique_candidates.append(c)
 
-    for candidate in unique_candidates[:10]:
-        score_data = validate_candidate(candidate, product, location, price)
-        store_match(cluster_id, candidate["url"], candidate["source"], score_data["score"], score_data["status"])
-        if score_data["status"] == "auto_publish":
-            send_notification(cluster_id, f"🔥 New {product} under ₹{price} found in {location}", [wish.get("user_email")])
+    # 5) Verify candidates — fetch actual pages, extract real data, reject dead/fake links
+    try:
+        verified_candidates = verify_and_filter_candidates(unique_candidates, wish, max_verify=20)
+    except Exception as e:
+        logger.warning(f"Page verification failed, using unverified results: {e}", exc_info=True)
+        verified_candidates = unique_candidates
 
+    for candidate in verified_candidates[:30]:
+        # Use pre-computed score if available (from scrapers/serper), otherwise validate via service
+        if candidate.get("score"):
+            score = candidate["score"]
+            status = "auto_publish" if score >= 60 else "admin_review"
+        else:
+            score_data = validate_candidate(candidate, product, location, price)
+            score = score_data["score"]
+            status = score_data["status"]
 
-def scrape_platform(platform: str, query: str):
-    # Simplified scraper simulation for a real match engine.
-    # A production version would call platform API or parse HTML.
-    # Here we return pseudo results.
-    entries = []
-    base_url = {
-        "OLX": "https://www.olx.in/item",
-        "Spinny": "https://www.spinny.com/car",
-        "Cars24": "https://www.cars24.com/buy-used-cars"
-    }.get(platform, "https://example.com")
-
-    for i in range(1, 4):
-        entries.append({
-            "url": f"{base_url}/{platform.lower()}-{query.replace(' ', '-')}-{i}",
-            "source": platform,
-            "title": f"{platform} listing {i} for {query}",
-            "price": 65000,
-            "location": "Chennai"
-        })
-
-    return entries
+        store_match(
+            cluster_id=cluster_id,
+            url=candidate["url"],
+            source=candidate.get("source", "unknown"),
+            score=score,
+            status=status,
+            wishlist_id=wishlist_id,
+            title=candidate.get("title"),
+            description=candidate.get("description"),
+            price=candidate.get("price"),
+            formatted_price=candidate.get("formatted_price"),
+        )
+        if status == "auto_publish":
+            send_notification(cluster_id, f"New {product} found in {location}", [wish.get("user_email")])
 
 
 def validate_candidate(candidate: dict, product, location, price):
@@ -171,10 +202,25 @@ def validate_candidate(candidate: dict, product, location, price):
     return {"score": 0, "status": "reject", "details": {"error": "validation_failed"}}
 
 
-def store_match(cluster_id, url, source, score, status):
+def store_match(cluster_id, url, source, score, status, wishlist_id=None,
+                title=None, description=None, price=None, formatted_price=None):
     with create_repos() as repos:
         repo = repos.match()
-        repo.create_match(cluster_id=cluster_id, url=url, source=source, score=score, status=status)
+        # Deduplicate by URL
+        if repo.get_by_url(url):
+            return
+        repo.create_match(
+            cluster_id=cluster_id,
+            url=url,
+            source=source,
+            score=score,
+            status=status,
+            wishlist_id=wishlist_id,
+            title=title,
+            description=description,
+            price=float(price) if price else None,
+            formatted_price=formatted_price,
+        )
 
 
 def send_notification(cluster_id, message, recipients):

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, ShoppingCart, Menu, X, Heart, User, LogOut, Settings, MessageSquare, ChevronDown, ChevronRight, MapPin, Bell, Bot } from 'lucide-react'
+import { Search, Menu, X, Heart, User, LogOut, Settings, MessageSquare, ChevronDown, ChevronRight, MapPin, Bell, Bot } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { signInWithGoogle } from '../lib/firebase'
 import { INDIAN_CITIES, CATEGORIES } from '../features/wishlist/wishlistFieldConfig'
@@ -131,10 +131,8 @@ export default function Header() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-sm">
-                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <span className="hidden sm:block text-lg font-bold tracking-tight text-sky-600">WISHI</span>
+              <img src="/icon-192x192.png" alt="WISHI" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg" />
+              <span className="hidden sm:block text-lg font-bold tracking-tight bg-gradient-to-b from-cyan-400 to-blue-600 bg-clip-text text-transparent">WISHI</span>
             </Link>
 
             {/* Location Selector */}
@@ -418,9 +416,7 @@ export default function Header() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4 py-6">
           <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
             <div className="px-8 pt-8 pb-2 text-center">
-              <div className="w-14 h-14 rounded-full bg-sky-600 flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-sky-600/25">
-                <ShoppingCart className="w-6 h-6" />
-              </div>
+              <img src="/icon-192x192.png" alt="WISHI" className="w-14 h-14 rounded-full" />
               <h2 className="text-2xl font-bold text-slate-900">Sign in to WISHI</h2>
               <p className="mt-2 text-sm text-slate-500 max-w-xs mx-auto">
                 Sign in or create your account in seconds using Google. Start creating wishes and receive matches instantly.

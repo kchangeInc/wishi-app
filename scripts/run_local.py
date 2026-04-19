@@ -41,6 +41,14 @@ ENV = {
     "VALIDATION_SERVICE_URL": "http://localhost:8007",
     "NOTIFICATION_SERVICE_URL": "http://localhost:8008",
     "ADMIN_SERVICE_URL": "http://localhost:8009",
+    "SERPER_API_KEY": os.getenv("SERPER_API_KEY", ""),
+    "GOOGLE_CSE_API_KEY": os.getenv("GOOGLE_CSE_API_KEY", ""),
+    "GOOGLE_CSE_CX": os.getenv("GOOGLE_CSE_CX", ""),
+    "FLIPKART_AFFILIATE_ID": os.getenv("FLIPKART_AFFILIATE_ID", ""),
+    "FLIPKART_AFFILIATE_TOKEN": os.getenv("FLIPKART_AFFILIATE_TOKEN", ""),
+    "AMAZON_PARTNER_TAG": os.getenv("AMAZON_PARTNER_TAG", ""),
+    "AMAZON_ACCESS_KEY": os.getenv("AMAZON_ACCESS_KEY", ""),
+    "AMAZON_SECRET_KEY": os.getenv("AMAZON_SECRET_KEY", ""),
 }
 
 # Each service: name, directory relative to BACKEND_DIR, uvicorn app path, port

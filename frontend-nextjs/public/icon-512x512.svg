@@ -1,5 +1,25 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="128" fill="#E60023"/>
-  <path d="M256 128C221.1 128 192 157.1 192 192C192 226.9 221.1 256 256 256C290.9 256 320 226.9 320 192C320 157.1 290.9 128 256 128ZM256 224C238.3 224 224 209.7 224 192C224 174.3 238.3 160 256 160C273.7 160 288 174.3 288 192C288 209.7 273.7 224 256 224Z" fill="white"/>
-  <path d="M256 288C207.4 288 160 260.6 160 192C160 123.4 207.4 96 256 96C304.6 96 352 123.4 352 192C352 260.6 304.6 288 256 288ZM256 144C224.6 144 192 158.6 192 192C192 225.4 224.6 240 256 240C287.4 240 320 225.4 320 192C320 158.6 287.4 144 256 144Z" fill="white" opacity="0.8"/>
+  <defs>
+    <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#0080FF"/>
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#0090FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="white"/>
+  <!-- Left wave outer -->
+  <path d="M108 130 C60 185, 60 327, 108 382" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <!-- Left wave inner -->
+  <path d="M148 175 C115 215, 115 297, 148 337" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <!-- Right wave outer -->
+  <path d="M404 130 C452 185, 452 327, 404 382" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <!-- Right wave inner -->
+  <path d="M364 175 C397 215, 397 297, 364 337" stroke="url(#waveGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <!-- W shape -->
+  <path d="M168 195 L256 380 L344 195" stroke="url(#wGrad)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M208 195 L256 320 L304 195" stroke="url(#wGrad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

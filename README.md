@@ -11,6 +11,31 @@ cd frontend-nextjs
 npm run dev
 
 
+
+Category → Scraper Mapping
+Category	Subcategory	Scrapers
+Automobile	Car	OLX, Cars24, CarDekho
+Automobile	Bike/Scooter	OLX, CarDekho
+Electronics	All	OLX, Flipkart
+Real Estate	All	99acres, OLX
+Fashion	All	Flipkart
+Home & Living	All	OLX, Flipkart
+
+So for a wishlist like "Honda City 2020 in Mumbai under 8L", the queries sent to SerperDev will be:
+
+Honda City 2020 site:olx.in OR site:nobroker.in Mumbai
+Honda City 2020 for sale in Mumbai under ₹800000
+site:olx.in Honda City 2020 Mumbai under 800000
+site:nobroker.in Honda City 2020 Mumbai under 800000
+site:cars24.com Honda City 2020 Mumbai
+site:spinny.com Honda City 2020 Mumbai
+
+site:olx.in intitle:"Honda City" Mumbai
+site:nobroker.in intitle:"Honda City" Mumbai
+site:cars24.com intitle:"Honda City" Mumbai
+"Honda City" ("for sale" OR "₹" OR "price") Mumbai under ₹800000 -review -comparison
+site:olx.in Honda City 2020 Mumbai inurl:item
+
 ## 🚀 Quick Start
 
 ### Option 1: Local Development (Recommended - No Docker Required)
