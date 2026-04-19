@@ -4,8 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Send, User, Sparkles, ArrowRight, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 
 const WISHI_KNOWLEDGE = {
   greeting: "Hi! I'm WISHI AI — your smart buying assistant. I can help you with creating wishlists, understanding how WISHI works, finding categories, and more. What would you like to know?",
@@ -192,8 +190,6 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header />
-
       <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6">
         {/* Chat Header */}
         <div className="flex items-center justify-between py-5 border-b border-gray-100">
@@ -333,8 +329,6 @@ export default function ChatPage() {
           </p>
         </div>
       </div>
-
-      {/* <Footer /> */}
     </div>
   )
 }

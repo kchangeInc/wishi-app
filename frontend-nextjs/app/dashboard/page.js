@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { User, Lock, Heart, MessageSquare, HelpCircle, LogOut, Star, ChevronDown, ChevronRight, Check, Bookmark, History, Bell, Camera, Link2, Globe, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 import { useAuth } from '../../contexts/AuthContext'
 import { api } from '../../lib/api'
 
@@ -732,8 +730,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Mobile tab bar */}
         <div className="flex gap-1 overflow-x-auto pb-4 mb-6 lg:hidden scrollbar-hide">
@@ -808,7 +804,6 @@ function DashboardContent() {
           </main>
         </div>
       </div>
-      <Footer />
     </div>
   )
 }

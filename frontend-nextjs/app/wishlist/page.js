@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Trash2, MapPin, Tag, Plus, ChevronRight, Car, Smartphone, Home, Shirt, Sofa, Clock, ArrowRight, Zap, CalendarClock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 import { useAuth } from '../../contexts/AuthContext'
 import WishlistForm from '../../features/wishlist/WishlistForm'
 import { getFields } from '../../features/wishlist/wishlistFieldConfig'
@@ -124,8 +122,6 @@ export default function WishlistPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         {/* Tabs */}
         <div className="flex gap-1 p-1 rounded-full bg-gray-100 w-fit mb-10">
@@ -356,7 +352,6 @@ export default function WishlistPage() {
           </motion.div>
         )}
       </div>
-      <Footer />
     </div>
   )
 }

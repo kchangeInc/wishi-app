@@ -5,7 +5,6 @@ import { ALL_PARAMS, SLUG_TO_CATEGORY, SLUG_TO_SUBCATEGORY, buildFakeWishlist, g
 import { CATEGORIES } from '../../../../features/wishlist/wishlistFieldConfig'
 import { generateMatches, MARKETPLACE_SOURCES } from '../../../../features/wishlist/mockMatches'
 import MatchCardStatic from '../../../../components/MatchCardStatic'
-import Footer from '../../../../components/Footer'
 
 const categoryIcons = { Automobile: Car, Electronics: Smartphone, 'Real Estate': Home, Fashion: Shirt, 'Home & Living': Sofa }
 const categoryGradients = {
@@ -232,8 +231,6 @@ export default async function ItemDetailPage({ params }) {
           </div>
         </section>
       </div>
-
-      <Footer />
     </div>
   )
 }

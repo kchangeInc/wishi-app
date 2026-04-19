@@ -4,7 +4,6 @@ import { MapPin, Car, Smartphone, Home, Shirt, Sofa, ShoppingCart, ArrowRight, C
 import { CITY_PARAMS, SLUG_TO_CITY, getCitySeoContent, toSlug } from '../../../lib/seoUtils'
 import { CATEGORIES } from '../../../features/wishlist/wishlistFieldConfig'
 import { MARKETPLACE_SOURCES } from '../../../features/wishlist/mockMatches'
-import Footer from '../../../components/Footer'
 
 const categoryIcons = { Automobile: Car, Electronics: Smartphone, 'Real Estate': Home, Fashion: Shirt, 'Home & Living': Sofa }
 const categoryGradients = {
@@ -218,8 +217,6 @@ export default async function CityPage({ params }) {
           </div>
         </section>
       </div>
-
-      <Footer />
     </div>
   )
 }

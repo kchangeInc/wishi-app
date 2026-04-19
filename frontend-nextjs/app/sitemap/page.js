@@ -3,8 +3,6 @@
 import { motion } from 'framer-motion'
 import { Map, Home, Heart, Bell, MessageSquare, HelpCircle, Info, Footprints, Shield, FileText, User, Search } from 'lucide-react'
 import Link from 'next/link'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 
 const sections = [
   {
@@ -74,8 +72,6 @@ const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transi
 export default function SitemapPage() {
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-gray-50/80 to-white">
         <div className="absolute top-10 -left-40 w-80 h-80 bg-sky-100/40 rounded-full blur-3xl" />
@@ -151,7 +147,6 @@ export default function SitemapPage() {
         </div>
       </section>
 
-      <Footer />
     </div>
   )
 }

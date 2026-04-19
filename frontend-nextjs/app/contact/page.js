@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { Mail, MapPin, Phone, Send, ArrowRight, MessageSquare, FileText, Shield } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 
 const quickLinks = [
   { icon: MessageSquare, label: 'Chat with AI', description: 'Get instant answers from our AI assistant', href: '/chat', color: 'bg-violet-50 text-violet-600' },
@@ -26,8 +24,6 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-gray-50/80 to-white">
         <div className="absolute top-10 -left-40 w-80 h-80 bg-sky-100/40 rounded-full blur-3xl" />
@@ -140,8 +136,6 @@ export default function ContactPage() {
           </div>
         </section>
       </div>
-
-      <Footer />
     </div>
   )
 }

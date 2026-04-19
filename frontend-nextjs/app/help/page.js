@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HelpCircle, MessageCircle, Mail, ChevronDown, Search, ArrowRight, FileText, Shield, Clock, CreditCard, Package, UserCog } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 
 const faqCategories = [
   {
@@ -143,8 +141,6 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-gray-50/80 to-white">
         <div className="absolute top-10 -left-40 w-80 h-80 bg-sky-100/40 rounded-full blur-3xl" />
@@ -342,7 +338,6 @@ export default function HelpPage() {
         </motion.div>
       </section>
 
-      <Footer />
     </div>
   )
 }

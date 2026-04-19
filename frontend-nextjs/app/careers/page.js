@@ -3,8 +3,6 @@
 import { Briefcase, Code, Megaphone, HeartHandshake, Zap, Globe, Users, Rocket, ArrowRight, Mail } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 
 const values = [
   { icon: Zap, title: 'Move Fast', description: 'Ship early, learn often. We value progress over perfection.', color: 'bg-amber-50 text-amber-600' },
@@ -35,8 +33,6 @@ const cardItem = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, tran
 export default function CareersPage() {
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-gray-50/80 to-white">
         <div className="absolute top-10 -left-40 w-80 h-80 bg-sky-100/40 rounded-full blur-3xl" />
@@ -138,8 +134,6 @@ export default function CareersPage() {
           </div>
         </motion.div>
       </div>
-
-      <Footer />
     </div>
   )
 }

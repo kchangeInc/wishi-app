@@ -5,8 +5,6 @@ import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Search, User, Star, Home } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Masonry from 'react-masonry-css'
-import Header from '../components/Header'
-import Footer from '../components/Footer'
 import { useAuth } from '../contexts/AuthContext'
 
 const featureCards = [
@@ -375,8 +373,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-
       <section className="relative overflow-hidden bg-white">
         <div className="absolute inset-y-0 left-0 w-full sm:w-1/2 bg-gradient-to-br from-sky-500/20 via-transparent to-transparent" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
@@ -506,7 +502,6 @@ export default function HomePage() {
 
       </main>
 
-      <Footer />
 
       <MobileBottomNav onHome={handleHome} onSearch={handleSearch} onProfile={handleProfile} />
 

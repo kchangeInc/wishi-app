@@ -3,8 +3,6 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, RefreshCw, Target, Zap, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 import { useAuth } from '../../contexts/AuthContext'
 
 const values = [
@@ -47,8 +45,6 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-gray-50/80 to-white">
         <div className="absolute top-10 -left-40 w-80 h-80 bg-sky-100/40 rounded-full blur-3xl" />
@@ -178,7 +174,6 @@ export default function AboutPage() {
           </div>
         </motion.div>
       </section>
-      <Footer />
     </div>
   )
 }

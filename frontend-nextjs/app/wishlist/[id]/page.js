@@ -5,8 +5,6 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { MapPin, ExternalLink, ChevronLeft, ArrowUpDown, ShieldCheck, Sparkles, Car, Smartphone, Home, Shirt, Sofa, Tag, Check, Heart, X } from 'lucide-react'
 import { motion } from 'framer-motion'
-import Header from '../../../components/Header'
-import Footer from '../../../components/Footer'
 import { useAuth } from '../../../contexts/AuthContext'
 import { generateMatches, MARKETPLACE_SOURCES } from '../../../features/wishlist/mockMatches'
 import { getFields } from '../../../features/wishlist/wishlistFieldConfig'
@@ -168,8 +166,6 @@ export default function MatchesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <Header />
-
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Back + Wishlist Summary */}
         <div className="mb-8">
@@ -402,7 +398,6 @@ export default function MatchesPage() {
         </motion.div>
         )}
       </div>
-      <Footer />
     </div>
   )
 }

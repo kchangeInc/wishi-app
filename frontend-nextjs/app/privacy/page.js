@@ -2,8 +2,6 @@
 
 import { motion } from 'framer-motion'
 import { Shield, XCircle, Lock, UserCheck } from 'lucide-react'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
 
 const doNots = [
   { icon: XCircle, text: 'Sell your personal data' },
@@ -35,8 +33,6 @@ const fadeUp = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transi
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-gray-50/80 to-white">
         <div className="absolute top-10 -left-40 w-80 h-80 bg-sky-100/40 rounded-full blur-3xl" />
@@ -119,7 +115,6 @@ export default function PrivacyPolicyPage() {
         {/* Last updated */}
         <p className="mt-10 text-center text-xs text-slate-300">Last updated: April 2026</p>
       </section>
-      <Footer />
     </div>
   )
 }
